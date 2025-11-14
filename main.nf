@@ -1,11 +1,9 @@
 #!/usr/bin/env nextflow
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    nf-core/vshotflow
+    nexvirome
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    Github : https://github.com/nf-core/vshotflow
-    Website: https://nf-co.re/vshotflow
-    Slack  : https://nfcore.slack.com/channels/vshotflow
+    Github : https://github.com/nexvirome
 ----------------------------------------------------------------------------------------
 */
 
@@ -15,10 +13,10 @@
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
 
-include { VSHOTFLOW  } from './workflows/vshotflow'
-include { PIPELINE_INITIALISATION } from './subworkflows/local/utils_nfcore_vshotflow_pipeline'
-include { PIPELINE_COMPLETION     } from './subworkflows/local/utils_nfcore_vshotflow_pipeline'
-include { getGenomeAttribute      } from './subworkflows/local/utils_nfcore_vshotflow_pipeline'
+include { NEXVIROME  } from './workflows/nexvirome'
+include { PIPELINE_INITIALISATION } from './subworkflows/local/utils_nexvirome_pipeline'
+include { PIPELINE_COMPLETION     } from './subworkflows/local/utils_nexvirome_pipeline'
+include { getGenomeAttribute      } from './subworkflows/local/utils_nexvirome_pipeline'
 
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -37,25 +35,6 @@ params.fasta = getGenomeAttribute('fasta')
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
 
-//
-// WORKFLOW: Run main analysis pipeline depending on type of input
-//
-workflow NFCORE_VSHOTFLOW {
-
-    take:
-    samplesheet // channel: samplesheet read in from --input
-
-    main:
-
-    //
-    // WORKFLOW: Run pipeline
-    //
-    VSHOTFLOW (
-        samplesheet
-    )
-    emit:
-    multiqc_report = VSHOTFLOW.out.multiqc_report // channel: /path/to/multiqc_report.html
-}
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     RUN MAIN WORKFLOW
@@ -75,13 +54,17 @@ workflow {
         args,
         params.outdir,
         params.input
+        //,
+        // params.databases
     )
 
     //
     // WORKFLOW: Run main workflow
     //
-    NFCORE_VSHOTFLOW (
+    NEXVIROME (
         PIPELINE_INITIALISATION.out.samplesheet
+        // ,
+        // PIPELINE_INITIALISATION.out.databases
     )
     //
     // SUBWORKFLOW: Run completion tasks
@@ -93,7 +76,7 @@ workflow {
         params.outdir,
         params.monochrome_logs,
         params.hook_url,
-        NFCORE_VSHOTFLOW.out.multiqc_report
+        NEXVIROME.out.multiqc_report
     )
 }
 
