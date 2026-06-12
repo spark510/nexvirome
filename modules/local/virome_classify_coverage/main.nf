@@ -35,9 +35,9 @@ process VIROME_CLASSIFY_COVERAGE {
     def min_identity = task.ext.min_identity ?: params.min_identity ?: 0.85
     def min_length = task.ext.min_length ?: params.min_length ?: 60
     def min_query_coverage = task.ext.min_query_coverage ?: params.min_query_coverage ?: 0.5
-    def min_unmasked_coverage = task.ext.min_coverage ?: params.min_coverage ?: 0.05
+    def min_unmasked_coverage = task.ext.min_unmasked_coverage ?: params.min_unmasked_coverage ?: 0.01
     def classification_rank = task.ext.classification_rank ?: params.classification_rank ?: 'species'
-    def multi_mapping_mode = task.ext.multi_mapping_mode ?: params.multi_mapping_mode ?: 'all'
+    def multi_mapping_mode = task.ext.multi_mapping_mode ?: params.multi_mapping_mode ?: 'best_hit'
     def depth_entropy = (task.ext.use_depth_entropy ?: params.use_depth_entropy) ? '--use-depth-entropy' : ''
     """
     export PYTHONPATH="${moduleDir}/../../../scripts:\${PYTHONPATH:-}"

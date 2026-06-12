@@ -29,7 +29,7 @@ The pipeline steps are:
 2. Adapter / quality trimming ([`fastp`](https://github.com/OpenGene/fastp) / [`cutadapt`](https://cutadapt.readthedocs.io/))
 3. Human host-read removal ([`Bowtie2`](https://bowtie-bio.sourceforge.net/bowtie2/) against CHM13 T2T)
 4. Viral alignment ([`MMseqs2`](https://github.com/soedinglab/MMseqs2) `easy-search` vs RefSeq viral)
-5. **Virome classification** — mask conserved/contaminant regions, apply an unmasked-breadth gate and a per-taxon read floor, assign taxonomy (LCA / best-hit)
+5. **Virome classification** — mask conserved/contaminant regions, apply an unmasked-breadth gate and a per-taxon read floor, assign each read to its best-hit taxon
 6. **OTU merge** — sample × taxon tables at genus / species / phage→host-genus
 7. Aggregate QC ([`MultiQC`](http://multiqc.info/))
 
