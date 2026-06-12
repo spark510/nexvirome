@@ -67,6 +67,11 @@ gunzip CHM13.fna.gz
 > The mask file `nexvirome_db.idx` is a self-describing container the pipeline
 > reads directly via `--mask_bed`; no extra step is needed.
 
+> **Tip — skip the Bowtie2 build.** `--host_fasta` rebuilds the (8 GB) host index
+> every run. If you already have a Bowtie2 index directory, pass it with
+> `--host_index <dir>` instead (the directory must contain the `*.bt2` files);
+> the pipeline then skips `BOWTIE2_BUILD` and goes straight to alignment.
+
 ### 3. Run the pipeline
 
 The pipeline can be run in two modes:
