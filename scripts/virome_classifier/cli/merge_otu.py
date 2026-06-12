@@ -8,7 +8,7 @@ into unified OTU tables (sample × taxon matrices) at various taxonomic ranks.
 Usage:
     python -m virome_classifier.cli.merge_otu \\
         --input-dir results/ \\
-        --pattern "*_lca_classification.csv" \\
+        --pattern "*_read_classification.csv" \\
         --taxonomy taxonomy.db \\
         --output otu_results/
 """
@@ -61,8 +61,8 @@ Examples:
         "--pattern",
         "-p",
         type=str,
-        default="*_lca_classification.csv",
-        help="Glob pattern for LCA files (default: *_lca_classification.csv)",
+        default="*_read_classification.csv",
+        help="Glob pattern for LCA files (default: *_read_classification.csv)",
     )
     input_group.add_argument(
         "--taxonomy",

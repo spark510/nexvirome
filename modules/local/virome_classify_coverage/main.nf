@@ -14,7 +14,7 @@ process VIROME_CLASSIFY_COVERAGE {
     path segment_info, stageAs: 'segment_info.csv'
 
     output:
-    tuple val(meta), path("${prefix}_lca_classification.csv"), emit: classification
+    tuple val(meta), path("${prefix}_read_classification.csv"), emit: classification
     tuple val(meta), path("${prefix}_coverage_abundance.tsv"), emit: coverage_abundance, optional: true
     tuple val(meta), path("${prefix}_coverage_summary.tsv"), emit: coverage_summary, optional: true
     tuple val(meta), path("${prefix}.kraken"), emit: kraken, optional: true
@@ -69,7 +69,7 @@ process VIROME_CLASSIFY_COVERAGE {
     stub:
     prefix = task.ext.prefix ?: "${meta.id}"
     """
-    touch ${prefix}_lca_classification.csv
+    touch ${prefix}_read_classification.csv
     touch ${prefix}_coverage_abundance.tsv
     touch ${prefix}_coverage_summary.tsv
     touch ${prefix}.kraken

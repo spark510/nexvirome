@@ -124,7 +124,7 @@ The pipeline generates the following files in the output directory:
 
 | File | Format | Description |
 |------|--------|-------------|
-| `{sample}_lca_classification.csv` | CSV | LCA classification for each query |
+| `{sample}_read_classification.csv` | CSV | LCA classification for each query |
 | `{sample}_final_hits.csv` | CSV | All filtered alignment hits |
 | `{sample}_coverage_stats.csv` | CSV | Coverage statistics per target |
 

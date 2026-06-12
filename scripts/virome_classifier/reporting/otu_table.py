@@ -58,8 +58,8 @@ def build_otu_table(
 
     Example:
         >>> lca_files = {
-        ...     "sample1": "sample1_lca_classification.csv",
-        ...     "sample2": "sample2_lca_classification.csv",
+        ...     "sample1": "sample1_read_classification.csv",
+        ...     "sample2": "sample2_read_classification.csv",
         ... }
         >>> otu = build_otu_table(lca_files)
     """

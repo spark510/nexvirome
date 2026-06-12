@@ -22,7 +22,7 @@ The pipeline is built using [Nextflow](https://www.nextflow.io/) and processes d
 <summary>Output files</summary>
 
 - `virome_classification/<sample>/`
-  - `<sample>_lca_classification.csv`: per-read best-hit virus assignment (query, taxid, name, rank) after masking + breadth/read-floor gating — **the primary result**. (The `lca_` filename prefix is historical; the default Method-B run assigns each read to its single best-hit taxon, not an LCA.)
+  - `<sample>_read_classification.csv`: per-read best-hit virus assignment (query, taxid, name, rank) after masking + breadth/read-floor gating — **the primary result**.
   - `<sample>.kreport`: Kraken-style hierarchical report (taxonomy tree with read counts).
   - `<sample>.kraken`: Kraken-format per-read output.
   - `<sample>_abundance.tsv`: per-taxon abundance table.
