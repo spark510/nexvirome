@@ -59,18 +59,23 @@ wget https://zenodo.org/records/20652876/files/nexvirome_db_v20260603.tar.gz
 tar -xzf nexvirome_db_v20260603.tar.gz
 DB=$PWD/release_db_v20260603
 
-# Human host genome (CHM13 T2T) from NCBI
-wget -O CHM13.fna.gz https://ftp.ncbi.nlm.nih.gov/genomes/all/GCF/009/914/755/GCF_009914755.1_T2T-CHM13v2.0/GCF_009914755.1_T2T-CHM13v2.0_genomic.fna.gz
-gunzip CHM13.fna.gz
+# Human host genome (CHM13 T2T) — RECOMMENDED: prebuilt Bowtie2 index
+# (from the Bowtie2 authors' AWS mirror; no local indexing needed)
+wget https://genome-idx.s3.amazonaws.com/bt/chm13v2.0.zip
+unzip chm13v2.0.zip        # -> chm13v2.0/*.bt2  (use with --host_index)
+
+# Alternative: the FASTA only (the pipeline then builds the index itself, ~minutes)
+# wget -O CHM13.fna.gz https://ftp.ncbi.nlm.nih.gov/genomes/all/GCF/009/914/755/GCF_009914755.1_T2T-CHM13v2.0/GCF_009914755.1_T2T-CHM13v2.0_genomic.fna.gz
+# gunzip CHM13.fna.gz
 ```
 
 > The mask file `nexvirome_db.idx` is a self-describing container the pipeline
 > reads directly via `--mask_bed`; no extra step is needed.
 
-> **Tip — skip the Bowtie2 build.** `--host_fasta` rebuilds the (8 GB) host index
-> every run. If you already have a Bowtie2 index directory, pass it with
-> `--host_index <dir>` instead (the directory must contain the `*.bt2` files);
-> the pipeline then skips `BOWTIE2_BUILD` and goes straight to alignment.
+> **Host genome — index vs. FASTA.** Prefer the prebuilt index above and pass it
+> with `--host_index chm13v2.0` (directory of `*.bt2` files) — the pipeline then
+> skips `BOWTIE2_BUILD` and goes straight to alignment. `--host_fasta CHM13.fna`
+> also works but rebuilds the ~8 GB index on every run.
 
 ### 3. Run the pipeline
 
@@ -83,7 +88,7 @@ nextflow run nexvirome \
    -profile <docker/singularity/conda> \
    --input            samplesheet.csv \
    --outdir           results \
-   --host_fasta       CHM13.fna \
+   --host_index       chm13v2.0 \
    --mmseqs_database  $DB/mmseqs_db/viral_20260525 \
    --taxonomy_db      $DB/tax_seq_v20260526_MSL41.db \
    --mask_bed         $DB/nexvirome_db.idx

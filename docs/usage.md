@@ -68,9 +68,13 @@ wget https://zenodo.org/records/20652876/files/nexvirome_db_v20260603.tar.gz
 tar -xzf nexvirome_db_v20260603.tar.gz
 DB=$PWD/release_db_v20260603
 
-# Human host genome (CHM13 T2T)
-wget -O CHM13.fna.gz https://ftp.ncbi.nlm.nih.gov/genomes/all/GCF/009/914/755/GCF_009914755.1_T2T-CHM13v2.0/GCF_009914755.1_T2T-CHM13v2.0_genomic.fna.gz
-gunzip CHM13.fna.gz
+# Human host genome (CHM13 T2T) — prebuilt Bowtie2 index (recommended)
+wget https://genome-idx.s3.amazonaws.com/bt/chm13v2.0.zip
+unzip chm13v2.0.zip        # -> chm13v2.0/*.bt2  (pass with --host_index)
+
+# Alternative: FASTA only — the pipeline builds the index itself (~minutes)
+# wget -O CHM13.fna.gz https://ftp.ncbi.nlm.nih.gov/genomes/all/GCF/009/914/755/GCF_009914755.1_T2T-CHM13v2.0/GCF_009914755.1_T2T-CHM13v2.0_genomic.fna.gz
+# gunzip CHM13.fna.gz
 ```
 
 | File | Param | Source |
@@ -78,7 +82,8 @@ gunzip CHM13.fna.gz
 | `mmseqs_db/viral_20260525` (prefix) | `--mmseqs_database` | Zenodo bundle |
 | `tax_seq_v20260526_MSL41.db` | `--taxonomy_db` | Zenodo bundle |
 | `nexvirome_db.idx` | `--mask_bed` | Zenodo bundle (self-describing; read directly) |
-| `CHM13.fna` | `--host_fasta` | NCBI (bowtie2 index built automatically) |
+| `chm13v2.0/` (Bowtie2 index) | `--host_index` | [Bowtie2 AWS mirror](https://genome-idx.s3.amazonaws.com/bt/chm13v2.0.zip) — skips BOWTIE2_BUILD |
+| `CHM13.fna` (alternative) | `--host_fasta` | NCBI (index built per run) |
 
 ## Running the pipeline
 
@@ -92,12 +97,14 @@ QC → trimming → host removal → MMseqs2 → classification → OTU merge:
 nextflow run nexvirome \
    --input            ./samplesheet.csv \
    --outdir           ./results \
-   --host_fasta       CHM13.fna \
+   --host_index       chm13v2.0 \
    --mmseqs_database  $DB/mmseqs_db/viral_20260525 \
    --taxonomy_db      $DB/tax_seq_v20260526_MSL41.db \
    --mask_bed         $DB/nexvirome_db.idx \
    -profile docker
 ```
+
+(Use `--host_fasta CHM13.fna` instead if you only have the FASTA; the pipeline then builds the index.)
 
 ### Mode B — from MMseqs2 onward (reads already host-removed / trimmed)
 
