@@ -473,7 +473,7 @@ def export_results(
     output_dir.mkdir(parents=True, exist_ok=True)
 
     # Save LCA results
-    lca_file = output_dir / f"{sample_name}_lca_classification.csv"
+    lca_file = output_dir / f"{sample_name}_read_classification.csv"
     lca_df.to_csv(lca_file, index=False)
     log_info(f"  LCA results: {lca_file}")
 
@@ -790,12 +790,12 @@ def main():
 
         # ====== COMMON: per-query classification CSV ======
         # LCA mode writes this via export_results(); coverage/em modes write it
-        # here so every mode emits a consistent {sample}_lca_classification.csv
+        # here so every mode emits a consistent {sample}_read_classification.csv
         # (consumed by the Nextflow module and OTU merge).
         if args.mode in ("coverage", "em") and len(lca_df) > 0:
             output_dir.mkdir(parents=True, exist_ok=True)
-            lca_df.to_csv(output_dir / f"{args.sample}_lca_classification.csv", index=False)
-            log_info(f"  Classification: {output_dir / f'{args.sample}_lca_classification.csv'}")
+            lca_df.to_csv(output_dir / f"{args.sample}_read_classification.csv", index=False)
+            log_info(f"  Classification: {output_dir / f'{args.sample}_read_classification.csv'}")
 
         # ====== COMMON: Kraken reports ======
         # Always emit a .kreport, even for a zero-read / fully-filtered sample, so

@@ -13,7 +13,7 @@ process VIROME_CLASSIFY {
     path mask_bed
 
     output:
-    tuple val(meta), path("${prefix}_lca_classification.csv"), emit: lca
+    tuple val(meta), path("${prefix}_read_classification.csv"), emit: lca
     tuple val(meta), path("${prefix}.kraken"), emit: kraken, optional: true  // LCA-based Kraken format
     tuple val(meta), path("${prefix}.kreport"), emit: kreport, optional: true  // LCA-based hierarchical report
     tuple val(meta), path("${prefix}_abundance.tsv"), emit: abundance, optional: true  // LCA-based abundance
@@ -67,7 +67,7 @@ process VIROME_CLASSIFY {
     stub:
     prefix = task.ext.prefix ?: "${meta.id}"
     """
-    touch ${prefix}_lca_classification.csv
+    touch ${prefix}_read_classification.csv
     touch ${prefix}.kraken
     touch ${prefix}.kreport
     touch ${prefix}_abundance.tsv

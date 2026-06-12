@@ -43,7 +43,7 @@ process OTU_MERGE {
     export PYTHONPATH="${moduleDir}/../../../scripts:\${PYTHONPATH:-}"
     python -m virome_classifier.cli.merge_otu \\
         --input-dir lca_input \\
-        --pattern "*_lca_classification.csv" \\
+        --pattern "*_read_classification.csv" \\
         --taxonomy ${taxonomy_db} \\
         --output otu_tables \\
         --ranks ${ranks} \\

@@ -116,7 +116,7 @@ Results are written to `--outdir`:
 
 | Path | Contents |
 |---|---|
-| `virome_classification/<sample>/` | per-sample virus calls: `<sample>_lca_classification.csv`, `.kreport`, `_abundance.tsv` |
+| `virome_classification/<sample>/` | per-sample virus calls: `<sample>_read_classification.csv`, `.kreport`, `_abundance.tsv` |
 | `virome_classification/otu_tables/` | merged sample × taxon tables: `otu_table_{genus,species,family}.csv` and `otu_table_phage_host.csv` (phage rolled up to host genus) |
 | `multiqc/multiqc_report.html` | aggregate QC (FastQC, trimming, host-removal stats) |
 | `pipeline_info/` | execution logs, software versions, resource usage |
