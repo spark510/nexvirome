@@ -1,0 +1,13 @@
+name: virome_classify_coverage
+channels:
+  - conda-forge
+  - bioconda
+  - defaults
+dependencies:
+  - python=3.12
+  - pandas>=1.5.0
+  - numpy>=1.23.0
+  - psutil
+  # virome_classifier is exposed via PYTHONPATH in the module script (absolute path
+  # from ${moduleDir}), not pip-installed here — a relative `-e ../../../scripts`
+  # breaks under nextflow's task-dir cwd. See virome_classify/environment.yml.

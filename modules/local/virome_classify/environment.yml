@@ -1,0 +1,16 @@
+name: virome_classify
+channels:
+  - conda-forge
+  - bioconda
+  - defaults
+dependencies:
+  - python=3.12
+  - pandas>=1.5.0
+  - numpy>=1.23.0
+  - psutil
+  # The virome_classifier package itself is NOT pip-installed here: a relative
+  # `-e ../../../scripts` breaks because nextflow runs pip from the task work dir,
+  # not this file's location. Instead the module's script exports
+  # PYTHONPATH="${moduleDir}/../../../scripts" (an absolute path nextflow resolves),
+  # and invokes it via `python -m virome_classifier...`. So this env only needs the
+  # third-party deps above.

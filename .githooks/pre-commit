@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+# Block plaintext masking BED from ever being committed.
+#
+# The masking BED encodes curated coordinates (our know-how); only the encrypted
+# .enc container may be committed. .gitignore already ignores *.bed, but this
+# hook also catches a force-add (`git add -f some.bed`), which .gitignore cannot.
+#
+# Install once per clone:   git config core.hooksPath .githooks
+#
+# Bypass intentionally (you really mean to commit a plaintext .bed):
+#   git commit --no-verify
+set -euo pipefail
+
+# Staged files that end in .bed but NOT .bed.enc (added/copied/modified only).
+offending=$(git diff --cached --name-only --diff-filter=ACM \
+            | grep -E '\.bed$' || true)
+
+if [[ -n "$offending" ]]; then
+    echo "❌ Refusing to commit plaintext masking BED file(s):" >&2
+    echo "$offending" | sed 's/^/   - /' >&2
+    echo "" >&2
+    echo "   Masking coordinates are curated IP and must not be committed as" >&2
+    echo "   plaintext. Encrypt first:" >&2
+    echo "     python -m virome_classifier.cli.encrypt_mask \\" >&2
+    echo "         --in <file>.bed --out <file>.bed.enc" >&2
+    echo "   then commit the .bed.enc (the pipeline loads it transparently)." >&2
+    echo "" >&2
+    echo "   To override deliberately: git commit --no-verify" >&2
+    exit 1
+fi
+exit 0

@@ -6,7 +6,7 @@ lint: {}
 
 template:
   org: nf-core
-  name: vshotflow
+  name: nexvirome
   description: A pipeline for viral shotgun data
   author: spark510
   version: 1.0.0dev
