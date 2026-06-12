@@ -45,7 +45,21 @@ nexvirome_db_*.tar.gz
 # folders are local-only — NEVER commit. DB files distribute via Zenodo/S3, not git.
 _archive/
 release_db_*/
-result_2*/
+# Dated result/figure folders: ship the FIGURE-GENERATING CODE only, never the
+# data, intermediates, or rendered figures. Ignore everything under result_*/,
+# then re-include code files (and their READMEs/captions). CSV/TSV/parquet and
+# all large/rendered artefacts stay out.
+result_2*/**
+!result_2*/
+!result_2*/**/
+!result_2*/**/*.py
+!result_2*/**/*.R
+!result_2*/**/*.sh
+# Note: figure-code only. The author's own manuscript / notes / data (md, csv,
+# tsv, parquet, rendered figures) stay local; general program docs live in
+# README.md and docs/. __pycache__ never ships.
+result_2*/**/__pycache__/
+result_2*/**/*.pyc
 # Scratch / temp working dirs
 .tmp_polcheck/
 _tmp/
