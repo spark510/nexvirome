@@ -1,12 +1,16 @@
-# nf-core/vshotflow: Usage
+# nexvirome: Usage
 
-## :warning: Please read this documentation on the nf-core website: [https://nf-co.re/vshotflow/usage](https://nf-co.re/vshotflow/usage)
+## :warning: Please read this documentation on the nf-core website: [https://nf-co.re/nexvirome/usage](https://nf-co.re/nexvirome/usage)
 
 > _Documentation of pipeline parameters is generated automatically from the pipeline schema and can no longer be found in markdown files._
 
 ## Introduction
 
-<!-- TODO nf-core: Add documentation about anything specific to running your pipeline. For general topics, please point to (and add to) the main nf-core website. -->
+nexvirome takes paired-end short reads, removes human host reads, aligns the rest
+against a curated RefSeq viral database, and classifies hits with a masking- and
+breadth-aware filter. Besides the samplesheet you must provide three reference
+files (`--mmseqs_database`, `--taxonomy_db`, `--mask_bed`) and a host genome
+(`--host_fasta`); see [Reference databases](#reference-databases) below.
 
 ## Samplesheet input
 
@@ -52,15 +56,48 @@ TREATMENT_REP3,AEG588A6_S6_L004_R1_001.fastq.gz,
 
 An [example samplesheet](../assets/samplesheet.csv) has been provided with the pipeline.
 
+## Reference databases
+
+nexvirome needs three reference files plus a host genome. The viral MMseqs2 index,
+taxonomy SQLite, and masked-region file are distributed via Zenodo; the human host
+genome (CHM13 T2T) is fetched from NCBI:
+
+```bash
+# Reference DB bundle (≈1.9 GB unpacked)
+wget https://zenodo.org/records/20652876/files/nexvirome_db_v20260603.tar.gz
+tar -xzf nexvirome_db_v20260603.tar.gz
+DB=$PWD/release_db_v20260603
+
+# Human host genome (CHM13 T2T)
+wget -O CHM13.fna.gz https://ftp.ncbi.nlm.nih.gov/genomes/all/GCF/009/914/755/GCF_009914755.1_T2T-CHM13v2.0/GCF_009914755.1_T2T-CHM13v2.0_genomic.fna.gz
+gunzip CHM13.fna.gz
+```
+
+| File | Param | Source |
+|---|---|---|
+| `mmseqs_db/viral_20260525` (prefix) | `--mmseqs_database` | Zenodo bundle |
+| `tax_seq_v20260526_MSL41.db` | `--taxonomy_db` | Zenodo bundle |
+| `nexvirome_db.idx` | `--mask_bed` | Zenodo bundle (self-describing; read directly) |
+| `CHM13.fna` | `--host_fasta` | NCBI (bowtie2 index built automatically) |
+
 ## Running the pipeline
 
 The typical command for running the pipeline is as follows:
 
 ```bash
-nextflow run nf-core/vshotflow --input ./samplesheet.csv --outdir ./results --genome GRCh37 -profile docker
+nextflow run nexvirome \
+   --input            ./samplesheet.csv \
+   --outdir           ./results \
+   --host_fasta       CHM13.fna \
+   --mmseqs_database  $DB/mmseqs_db/viral_20260525 \
+   --taxonomy_db      $DB/tax_seq_v20260526_MSL41.db \
+   --mask_bed         $DB/nexvirome_db.idx \
+   -profile docker
 ```
 
 This will launch the pipeline with the `docker` configuration profile. See below for more information about profiles.
+
+To start from already host-removed / trimmed reads, add `--skip_host_removal --skip_cutadapt`.
 
 Note that the pipeline will create the following files in your working directory:
 
@@ -81,7 +118,7 @@ Pipeline settings can be provided in a `yaml` or `json` file via `-params-file <
 The above pipeline run specified with a params file in yaml format:
 
 ```bash
-nextflow run nf-core/vshotflow -profile docker -params-file params.yaml
+nextflow run nexvirome -profile docker -params-file params.yaml
 ```
 
 with:
@@ -100,14 +137,14 @@ You can also generate such `YAML`/`JSON` files via [nf-core/launch](https://nf-c
 When you run the above command, Nextflow automatically pulls the pipeline code from GitHub and stores it as a cached version. When running the pipeline after this, it will always use the cached version if available - even if the pipeline has been updated since. To make sure that you're running the latest version of the pipeline, make sure that you regularly update the cached version of the pipeline:
 
 ```bash
-nextflow pull nf-core/vshotflow
+nextflow pull nexvirome
 ```
 
 ### Reproducibility
 
 It is a good idea to specify the pipeline version when running the pipeline on your data. This ensures that a specific version of the pipeline code and software are used when you run your pipeline. If you keep using the same tag, you'll be running the same version of the pipeline, even if there have been changes to the code since.
 
-First, go to the [nf-core/vshotflow releases page](https://github.com/nf-core/vshotflow/releases) and find the latest pipeline version - numeric only (eg. `1.3.1`). Then specify this when running the pipeline with `-r` (one hyphen) - eg. `-r 1.3.1`. Of course, you can switch to another version by changing the number after the `-r` flag.
+First, go to the [nexvirome releases page](https://github.com/nexvirome/releases) and find the latest pipeline version - numeric only (eg. `1.3.1`). Then specify this when running the pipeline with `-r` (one hyphen) - eg. `-r 1.3.1`. Of course, you can switch to another version by changing the number after the `-r` flag.
 
 This version number will be logged in reports when you run the pipeline, so that you'll know what you used when you look back in the future. For example, at the bottom of the MultiQC reports.
 

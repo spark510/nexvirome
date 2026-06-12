@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "virome-classifier"
+version = "1.0.0"
+description = "Advanced viral metagenomics classification pipeline (nexvirome)"
+authors = [{ name = "Virome Engine Team" }]
+requires-python = ">=3.9"
+dependencies = [
+    "pandas>=1.5.0",
+    "numpy>=1.23.0",
+    "psutil",
+]
+
+[project.scripts]
+virome-classify          = "virome_classifier.cli.classify:main"
+virome-classify-coverage = "virome_classifier.cli.classify_coverage:main"
+virome-merge-otu         = "virome_classifier.cli.merge_otu:main"
+virome-build-db          = "virome_classifier.cli.build_taxonomy_db:main"
+virome-setup-db          = "virome_classifier.cli.setup_taxonomy_db:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["virome_classifier*", "benchmark*"]
+exclude = ["_archive*", "*.examples*", "*.examples.*", "*.tests*", "*.tests.*"]

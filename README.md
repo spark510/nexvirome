@@ -1,101 +1,129 @@
 <h1>
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="docs/images/nf-core-vshotflow_logo_dark.png">
-    <img alt="nf-core/vshotflow" src="docs/images/nf-core-vshotflow_logo_light.png">
+    <source media="(prefers-color-scheme: dark)" srcset="docs/images/nexvirome_logo_dark.png">
+    <img alt="nexvirome" src="docs/images/nexvirome_logo_light.png">
   </picture>
 </h1>
 
-[![GitHub Actions CI Status](https://github.com/nf-core/vshotflow/actions/workflows/ci.yml/badge.svg)](https://github.com/nf-core/vshotflow/actions/workflows/ci.yml)
-[![GitHub Actions Linting Status](https://github.com/nf-core/vshotflow/actions/workflows/linting.yml/badge.svg)](https://github.com/nf-core/vshotflow/actions/workflows/linting.yml)[![AWS CI](https://img.shields.io/badge/CI%20tests-full%20size-FF9900?labelColor=000000&logo=Amazon%20AWS)](https://nf-co.re/vshotflow/results)[![Cite with Zenodo](http://img.shields.io/badge/DOI-10.5281/zenodo.XXXXXXX-1073c8?labelColor=000000)](https://doi.org/10.5281/zenodo.XXXXXXX)
-[![nf-test](https://img.shields.io/badge/unit_tests-nf--test-337ab7.svg)](https://www.nf-test.com)
-
+[![Cite with Zenodo](http://img.shields.io/badge/DOI-10.5281/zenodo.20652876-1073c8?labelColor=000000)](https://doi.org/10.5281/zenodo.20652876)
 [![Nextflow](https://img.shields.io/badge/nextflow%20DSL2-%E2%89%A524.04.2-23aa62.svg)](https://www.nextflow.io/)
 [![run with conda](http://img.shields.io/badge/run%20with-conda-3EB049?labelColor=000000&logo=anaconda)](https://docs.conda.io/en/latest/)
 [![run with docker](https://img.shields.io/badge/run%20with-docker-0db7ed?labelColor=000000&logo=docker)](https://www.docker.com/)
 [![run with singularity](https://img.shields.io/badge/run%20with-singularity-1d355c.svg?labelColor=000000)](https://sylabs.io/docs/)
-[![Launch on Seqera Platform](https://img.shields.io/badge/Launch%20%F0%9F%9A%80-Seqera%20Platform-%234256e7)](https://cloud.seqera.io/launch?pipeline=https://github.com/nf-core/vshotflow)
-
-[![Get help on Slack](http://img.shields.io/badge/slack-nf--core%20%23vshotflow-4A154B?labelColor=000000&logo=slack)](https://nfcore.slack.com/channels/vshotflow)[![Follow on Twitter](http://img.shields.io/badge/twitter-%40nf__core-1DA1F2?labelColor=000000&logo=twitter)](https://twitter.com/nf_core)[![Follow on Mastodon](https://img.shields.io/badge/mastodon-nf__core-6364ff?labelColor=FFFFFF&logo=mastodon)](https://mstdn.science/@nf_core)[![Watch on YouTube](http://img.shields.io/badge/youtube-nf--core-FF0000?labelColor=000000&logo=youtube)](https://www.youtube.com/c/nf-core)
 
 ## Introduction
 
-**nf-core/vshotflow** is a bioinformatics pipeline that ...
+**nexvirome** is a Nextflow/nf-core pipeline for **viral metagenomics from
+host-dominated samples** (e.g. sputum, respiratory swabs). It takes paired-end
+short reads, removes human host reads, aligns the remainder against a curated
+RefSeq viral database with [MMseqs2](https://github.com/soedinglab/MMseqs2), and
+classifies hits with a masking- and breadth-aware filter that suppresses the
+false positives typical of human-rich matrices (human/vector contamination and
+conserved cross-mapping regions — retroviral *gag/pol/env* and oncogene homology,
+flavivirus NS, herpes core genes, rRNA). It outputs per-sample virus calls and
+merged sample × taxon OTU tables at genus / species / phage-host-genus level.
 
-<!-- TODO nf-core:
-   Complete this sentence with a 2-3 sentence summary of what types of data the pipeline ingests, a brief overview of the
-   major pipeline sections and the types of output it produces. You're giving an overview to someone new
-   to nf-core here, in 15-20 seconds. For an example, see https://github.com/nf-core/rnaseq/blob/master/README.md#introduction
--->
+The pipeline steps are:
 
-<!-- TODO nf-core: Include a figure that guides the user through the major workflow steps. Many nf-core
-     workflows use the "tube map" design for that. See https://nf-co.re/docs/contributing/design_guidelines#examples for examples.   -->
-<!-- TODO nf-core: Fill in short bullet-pointed list of the default steps in the pipeline -->1. Read QC ([`FastQC`](https://www.bioinformatics.babraham.ac.uk/projects/fastqc/))2. Present QC for raw reads ([`MultiQC`](http://multiqc.info/))
+1. Read QC ([`FastQC`](https://www.bioinformatics.babraham.ac.uk/projects/fastqc/))
+2. Adapter / quality trimming ([`fastp`](https://github.com/OpenGene/fastp) / [`cutadapt`](https://cutadapt.readthedocs.io/))
+3. Human host-read removal ([`Bowtie2`](https://bowtie-bio.sourceforge.net/bowtie2/) against CHM13 T2T)
+4. Viral alignment ([`MMseqs2`](https://github.com/soedinglab/MMseqs2) `easy-search` vs RefSeq viral)
+5. **Virome classification** — mask conserved/contaminant regions, apply an unmasked-breadth gate and a per-taxon read floor, assign taxonomy (LCA / best-hit)
+6. **OTU merge** — sample × taxon tables at genus / species / phage→host-genus
+7. Aggregate QC ([`MultiQC`](http://multiqc.info/))
 
 ## Usage
 
 > [!NOTE]
 > If you are new to Nextflow and nf-core, please refer to [this page](https://nf-co.re/docs/usage/installation) on how to set-up Nextflow. Make sure to [test your setup](https://nf-co.re/docs/usage/introduction#how-to-run-a-pipeline) with `-profile test` before running the workflow on actual data.
 
-<!-- TODO nf-core: Describe the minimum required steps to execute the pipeline, e.g. how to prepare samplesheets.
-     Explain what rows and columns represent. For instance (please edit as appropriate):
+### 1. Prepare a samplesheet
 
-First, prepare a samplesheet with your input data that looks as follows:
-
-`samplesheet.csv`:
+`samplesheet.csv` — one row per sample (paired-end FASTQ):
 
 ```csv
 sample,fastq_1,fastq_2
-CONTROL_REP1,AEG588A1_S1_L002_R1_001.fastq.gz,AEG588A1_S1_L002_R2_001.fastq.gz
+SAMPLE_01,/path/SAMPLE_01_R1.fastq.gz,/path/SAMPLE_01_R2.fastq.gz
+SAMPLE_02,/path/SAMPLE_02_R1.fastq.gz,/path/SAMPLE_02_R2.fastq.gz
 ```
 
-Each row represents a fastq file (single-end) or a pair of fastq files (paired end).
+### 2. Download the reference databases
 
--->
-
-Now, you can run the pipeline using:
-
-<!-- TODO nf-core: update the following command to include all required parameters for a minimal example -->
+The viral MMseqs2 index, taxonomy SQLite, and masked-region file are distributed
+via Zenodo (the human host genome is fetched separately from NCBI):
 
 ```bash
-nextflow run nf-core/vshotflow \
-   -profile <docker/singularity/.../institute> \
-   --input samplesheet.csv \
-   --outdir <OUTDIR>
+# Reference DB bundle (≈1.9 GB unpacked)
+wget https://zenodo.org/records/20652876/files/nexvirome_db_v20260603.tar.gz
+tar -xzf nexvirome_db_v20260603.tar.gz
+DB=$PWD/release_db_v20260603
+
+# Human host genome (CHM13 T2T) from NCBI
+wget -O CHM13.fna.gz https://ftp.ncbi.nlm.nih.gov/genomes/all/GCF/009/914/755/GCF_009914755.1_T2T-CHM13v2.0/GCF_009914755.1_T2T-CHM13v2.0_genomic.fna.gz
+gunzip CHM13.fna.gz
 ```
 
-> [!WARNING]
-> Please provide pipeline parameters via the CLI or Nextflow `-params-file` option. Custom config files including those provided by the `-c` Nextflow option can be used to provide any configuration _**except for parameters**_; see [docs](https://nf-co.re/docs/usage/getting_started/configuration#custom-configuration-files).
+> The mask file `nexvirome_db.idx` is a self-describing container the pipeline
+> reads directly via `--mask_bed`; no extra step is needed.
 
-For more details and further functionality, please refer to the [usage documentation](https://nf-co.re/vshotflow/usage) and the [parameter documentation](https://nf-co.re/vshotflow/parameters).
+### 3. Run the pipeline
+
+```bash
+nextflow run nexvirome \
+   -profile <docker/singularity/conda> \
+   --input            samplesheet.csv \
+   --outdir           results \
+   --host_fasta       CHM13.fna \
+   --mmseqs_database  $DB/mmseqs_db/viral_20260525 \
+   --taxonomy_db      $DB/tax_seq_v20260526_MSL41.db \
+   --mask_bed         $DB/nexvirome_db.idx
+```
+
+To start from already host-removed / trimmed reads, add `--skip_host_removal --skip_cutadapt`.
+
+**Default classification parameters** are the locked "Method B" settings used in
+the paper (best-hit assignment, unmasked-breadth ≥ 0.01, per-taxon read floor
+n ≥ 3, relative-abundance gate off; HitQuality fident ≥ 0.85 / alnlen ≥ 60 /
+qcov ≥ 0.5 / e ≤ 1e-3). Override any of them via params (e.g. `--min_unmasked_coverage`,
+`--min_read_count`).
+
+> [!WARNING]
+> Provide pipeline parameters via the CLI or a Nextflow `-params-file`. Custom `-c`
+> config files may set any configuration _**except parameters**_.
 
 ## Pipeline output
 
-To see the results of an example test run with a full size dataset refer to the [results](https://nf-co.re/vshotflow/results) tab on the nf-core website pipeline page.
-For more details about the output files and reports, please refer to the
-[output documentation](https://nf-co.re/vshotflow/output).
+Results are written to `--outdir`:
+
+| Path | Contents |
+|---|---|
+| `virome_classification/<sample>/` | per-sample virus calls: `<sample>_lca_classification.csv`, `.kreport`, `_abundance.tsv` |
+| `virome_classification/otu_tables/` | merged sample × taxon tables: `otu_table_{genus,species,family}.csv` and `otu_table_phage_host.csv` (phage rolled up to host genus) |
+| `multiqc/multiqc_report.html` | aggregate QC (FastQC, trimming, host-removal stats) |
+| `pipeline_info/` | execution logs, software versions, resource usage |
+
+See [`docs/output.md`](docs/output.md) for a full description of each file.
 
 ## Credits
 
-nf-core/vshotflow was originally written by spark510.
-
-We thank the following people for their extensive assistance in the development of this pipeline:
-
-<!-- TODO nf-core: If applicable, make list of people who have also contributed -->
+nexvirome was developed by Sangchul Park (Korea University). It was built using
+the [nf-core](https://nf-co.re/) pipeline template; nexvirome is an independent
+project and is not an officially nf-core-curated pipeline.
 
 ## Contributions and Support
 
 If you would like to contribute to this pipeline, please see the [contributing guidelines](.github/CONTRIBUTING.md).
 
-For further information or help, don't hesitate to get in touch on the [Slack `#vshotflow` channel](https://nfcore.slack.com/channels/vshotflow) (you can join with [this invite](https://nf-co.re/join/slack)).
-
 ## Citations
 
-<!-- TODO nf-core: Add citation for pipeline after first release. Uncomment lines below and update Zenodo doi and badge at the top of this file. -->
-<!-- If you use nf-core/vshotflow for your analysis, please cite it using the following doi: [10.5281/zenodo.XXXXXX](https://doi.org/10.5281/zenodo.XXXXXX) -->
+If you use nexvirome, please cite the pipeline and its reference databases via the
+Zenodo DOI:
 
-<!-- TODO nf-core: Add bibliography of tools and data used in your pipeline -->
+> NexVirome reference databases (v20260603). Zenodo. doi: [10.5281/zenodo.20652876](https://doi.org/10.5281/zenodo.20652876)
 
-An extensive list of references for the tools used by the pipeline can be found in the [`CITATIONS.md`](CITATIONS.md) file.
+An extensive list of references for the tools used by the pipeline can be found in
+the [`CITATIONS.md`](CITATIONS.md) file.
 
 You can cite the `nf-core` publication as follows:
 

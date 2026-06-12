@@ -1,0 +1,26 @@
+# Default Blacklist for Virome Classifier
+# Known contaminants that should be filtered out
+#
+# NOTE: NC_032111.1 (BeAn 58058 virus) is now filtered automatically in step1
+#       You don't need to add it here anymore!
+#
+# Format: One taxon name or taxon ID per line
+# Lines starting with # are comments
+#
+# Usage:
+#   from coverage_based_classifier3 import load_blacklist
+#   blacklist = load_blacklist("default_blacklist.txt")
+#
+# Or directly:
+#   classifier = CoverageBasedClassifier3(
+#       blacklist_taxa=["Some other contaminant", ...]
+#   )
+
+# Automatically filtered (no need to add):
+# - NC_032111.1 (BeAn 58058 virus) ← Filtered in step1
+
+# Add additional contaminants below:
+# Example:
+# Enterobacteria phage phiX174
+# Vector sequences
+# etc.

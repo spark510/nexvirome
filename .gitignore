@@ -1,3 +1,4 @@
+# ── Nextflow / nf-core defaults ─────────────────────────────────────────────
 .nextflow*
 work/
 data/
@@ -6,4 +7,101 @@ results/
 testing/
 testing*
 *.pyc
+__pycache__/
 null/
+
+# ── Masking BED is curated IP — NEVER commit plaintext, only the .enc ───────
+# Plaintext .bed exposes the masked coordinates (our know-how). Distribute the
+# encrypted container instead (see virome_classifier.alignment.filters.mask_crypt;
+# build with `python -m virome_classifier.cli.encrypt_mask`). The .enc is allowed.
+*.bed
+!*.bed.enc
+
+# ── Large reference data & databases (NEVER commit; 200GB+) ─────────────────
+resources/
+# Zenodo DB release bundle (distributed via Zenodo, NOT git)
+nexvirome_db_*.tar.gz
+*.tar.gz
+*.tar
+*.db
+*.db-journal
+*.accession2taxid
+*.accession2taxid.gz
+*.dmp
+*.fna
+*.fna.gz
+*.fasta
+*.fastq
+*.fastq.gz
+*.fq.gz
+# MMseqs / kraken / bracken / ganon / metabuli index artifacts
+*.k2d
+*.kmer_distrib
+*.ibf
+*.hibf
+
+# ── Pipeline run outputs & intermediates (regenerable) ──────────────────────
+# Archived build artifacts (274GB), release DB bundle (1.9GB), and dated result
+# folders are local-only — NEVER commit. DB files distribute via Zenodo/S3, not git.
+_archive/
+release_db_*/
+result_2*/
+# Scratch / temp working dirs
+.tmp_polcheck/
+_tmp/
+.tmp_*/
+
+# ── Real-data sample sheets & internal scripts (expose private filesystem paths) ──
+# These point at other users' home dirs (/home/mhkim, /home/scpark, SRA mirrors).
+# The committed example lives at assets/samplesheet.csv; keep real ones local.
+/sample_sheet*.csv
+/databases.csv
+/run_virome_classification.sh
+# Internal working notes (not for publication)
+/_status.txt
+/CODE_REVIEW_STATUS.md
+_status.txt
+
+# ── DB / mask BUILD code = private IP (mask-generation logic) ────────────────
+# The runtime classifier (scripts/virome_classifier) does NOT import these, so
+# excluding them does not break the published pipeline. Users get the prebuilt DB
+# + encrypted mask; how the mask coordinates are generated stays internal.
+scripts/database/
+scripts/acc2tax/
+benchmark_runs/
+results_test*/
+results_eval/
+.snakemake/
+test_data/
+test_single_result/
+*.result
+*.kraken
+*.kreport
+
+# ── Paper FIGURE artifacts (regenerable from scripts; keep tables only) ─────
+paper/figures/
+notebooks/paper/figures/
+*.tiff
+*.eps
+*.png
+# but DO keep the manuscript text, methods, and final tables:
+!paper/manuscript/
+!paper/methods/
+!paper/tables/
+!paper/tables/*.csv
+
+# ── Misc local scratch ──────────────────────────────────────────────────────
+*.zip
+output.png
+index.html
+*_to_univec/
+univec_to_*/
+GCF_*_to_*/
+R64-1-1/
+.claude/
+
+# Manuscripts / office docs (often unpublished — keep local)
+*.docx
+*.doc
+*.xlsx
+*.pptx

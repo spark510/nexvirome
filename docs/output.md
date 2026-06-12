@@ -1,4 +1,4 @@
-# nf-core/vshotflow: Output
+# nexvirome: Output
 
 ## Introduction
 
@@ -6,15 +6,51 @@ This document describes the output produced by the pipeline. Most of the plots a
 
 The directories listed below will be created in the results directory after the pipeline has finished. All paths are relative to the top-level results directory.
 
-<!-- TODO nf-core: Write this documentation describing your workflow's output -->
-
 ## Pipeline overview
 
 The pipeline is built using [Nextflow](https://www.nextflow.io/) and processes data using the following steps:
 
 - [FastQC](#fastqc) - Raw read QC
+- [Virome classification](#virome-classification) - Per-sample virus calls (the main result)
+- [OTU tables](#otu-tables) - Merged sample × taxon matrices (genus / species / phage-host)
 - [MultiQC](#multiqc) - Aggregate report describing results and QC from the whole pipeline
 - [Pipeline information](#pipeline-information) - Report metrics generated during the workflow execution
+
+### Virome classification
+
+<details markdown="1">
+<summary>Output files</summary>
+
+- `virome_classification/<sample>/`
+  - `<sample>_lca_classification.csv`: per-read virus assignment (query, taxid, name, rank) after masking + breadth/read-floor gating — **the primary result**.
+  - `<sample>.kreport`: Kraken-style hierarchical report (taxonomy tree with read counts).
+  - `<sample>.kraken`: Kraken-format per-read output.
+  - `<sample>_abundance.tsv`: per-taxon abundance table.
+
+</details>
+
+Reads aligned to the RefSeq viral database are filtered to suppress the false
+positives typical of host-rich samples: a curated mask hides human/vector
+contamination and conserved cross-mapping regions (retroviral *gag/pol/env* and
+oncogene homology, flavivirus NS, herpes core, rRNA), an unmasked-breadth gate
+drops references covered only over masked/conserved stretches, and a per-taxon
+read floor removes low-count cross-map artefacts. Defaults follow the locked
+"Method B" parameters (best-hit, breadth ≥ 0.01, n ≥ 3, rel-abundance off).
+
+### OTU tables
+
+<details markdown="1">
+<summary>Output files</summary>
+
+- `virome_classification/otu_tables/`
+  - `otu_table_raw.csv`: sample × taxid matrix (raw read counts).
+  - `otu_table_genus.csv` / `otu_table_species.csv` / `otu_table_family.csv`: counts rolled up to each rank.
+  - `otu_table_phage_host.csv`: phage with a known host rolled up to their bacterial/archaeal **host genus** (`phages_of_<Host>`); non-phage and host-unknown phage stay at species. Additive — the per-rank tables above are unaffected.
+
+</details>
+
+Tables collate per-sample classifications across the cohort into sample × taxon
+matrices for downstream comparison.
 
 ### FastQC
 

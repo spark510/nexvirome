@@ -17,7 +17,7 @@
                         "size": "Large",
                         "weight": "Bolder",
                         "color": "<% if (success) { %>Good<% } else { %>Attention<%} %>",
-                        "text": "nf-core/vshotflow v${version} - ${runName}",
+                        "text": "nexvirome v${version} - ${runName}",
                         "wrap": true
                     },
                     {

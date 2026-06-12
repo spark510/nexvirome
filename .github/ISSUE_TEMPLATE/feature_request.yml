@@ -1,5 +1,5 @@
 name: Feature request
-description: Suggest an idea for the nf-core/vshotflow pipeline
+description: Suggest an idea for the nexvirome pipeline
 labels: enhancement
 body:
   - type: textarea
