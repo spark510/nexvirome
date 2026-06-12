@@ -82,7 +82,11 @@ gunzip CHM13.fna.gz
 
 ## Running the pipeline
 
-The typical command for running the pipeline is as follows:
+The pipeline supports two run modes.
+
+### Mode A — full pipeline (from raw FASTQ)
+
+QC → trimming → host removal → MMseqs2 → classification → OTU merge:
 
 ```bash
 nextflow run nexvirome \
@@ -95,9 +99,24 @@ nextflow run nexvirome \
    -profile docker
 ```
 
-This will launch the pipeline with the `docker` configuration profile. See below for more information about profiles.
+### Mode B — from MMseqs2 onward (reads already host-removed / trimmed)
 
-To start from already host-removed / trimmed reads, add `--skip_host_removal --skip_cutadapt`.
+Skip the QC/trimming/host-removal front end with `--skip_host_removal --skip_cutadapt`
+(no `--host_fasta` required):
+
+```bash
+nextflow run nexvirome \
+   --input            ./samplesheet.csv \
+   --outdir           ./results \
+   --skip_host_removal \
+   --skip_cutadapt \
+   --mmseqs_database  $DB/mmseqs_db/viral_20260525 \
+   --taxonomy_db      $DB/tax_seq_v20260526_MSL41.db \
+   --mask_bed         $DB/nexvirome_db.idx \
+   -profile docker
+```
+
+Both launch with the `docker` profile; see below for other profiles (singularity/conda).
 
 Note that the pipeline will create the following files in your working directory:
 

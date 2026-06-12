@@ -120,27 +120,45 @@
                 },
                 "min_identity": {
                     "type": "number",
-                    "default": 0.8,
+                    "default": 0.85,
                     "fa_icon": "fas fa-percent",
-                    "description": "Minimum alignment identity for a hit."
+                    "description": "HitQuality minimum alignment identity (fident) for a hit."
                 },
                 "min_length": {
                     "type": "integer",
-                    "default": 50,
+                    "default": 60,
                     "fa_icon": "fas fa-ruler-horizontal",
-                    "description": "Minimum aligned length (bp) for a hit."
-                },
-                "min_coverage": {
-                    "type": "number",
-                    "default": 0.1,
-                    "fa_icon": "fas fa-percent",
-                    "description": "Minimum unmasked genome coverage (maps to --min-unmasked-coverage in coverage mode)."
+                    "description": "HitQuality minimum aligned length (alnlen, bp) for a hit."
                 },
                 "min_query_coverage": {
                     "type": "number",
                     "default": 0.5,
                     "fa_icon": "fas fa-percent",
-                    "description": "Minimum fraction of the query covered by the alignment."
+                    "description": "HitQuality minimum fraction of the query covered by the alignment (qcov)."
+                },
+                "max_evalue": {
+                    "type": "number",
+                    "default": 0.001,
+                    "fa_icon": "fas fa-percent",
+                    "description": "HitQuality maximum E-value for a hit."
+                },
+                "min_unmasked_coverage": {
+                    "type": "number",
+                    "default": 0.01,
+                    "fa_icon": "fas fa-percent",
+                    "description": "Reference filter: minimum unmasked genome breadth (covered bp over full genome length) for a reference to pass."
+                },
+                "min_read_count": {
+                    "type": "integer",
+                    "default": 3,
+                    "fa_icon": "fas fa-sort-numeric-up",
+                    "description": "Per-taxon read floor (n): drop taxa with fewer best-hit reads, applied before genus/host roll-up."
+                },
+                "min_rel_abundance": {
+                    "type": "number",
+                    "default": 0.0,
+                    "fa_icon": "fas fa-balance-scale",
+                    "description": "Relative-abundance gate. 0 disables the gate (Method B default)."
                 },
                 "classification_rank": {
                     "type": "string",
@@ -156,14 +174,14 @@
                 },
                 "multi_mapping_mode": {
                     "type": "string",
-                    "default": "all",
+                    "default": "best_hit",
                     "enum": [
                         "all",
                         "best_hit",
                         "local_depth"
                     ],
                     "fa_icon": "fas fa-random",
-                    "description": "How multi-mapping reads are handled in coverage mode."
+                    "description": "How multi-mapping reads are assigned. Method B uses best_hit (no LCA roll-up)."
                 },
                 "use_depth_entropy": {
                     "type": "boolean",
