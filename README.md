@@ -1,6 +1,6 @@
 <h1>
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="docs/images/nexvirome_logo_dark.png">
+    <!-- <source media="(prefers-color-scheme: dark)" srcset="docs/images/nexvirome_logo_dark.png"> -->
     <img alt="nexvirome" src="docs/images/nexvirome_logo_light.png">
   </picture>
 </h1>
