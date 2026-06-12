@@ -69,6 +69,10 @@ gunzip CHM13.fna.gz
 
 ### 3. Run the pipeline
 
+The pipeline can be run in two modes:
+
+**Mode A — full pipeline (from raw FASTQ).** QC → trimming → host removal → MMseqs2 → classification → OTU merge:
+
 ```bash
 nextflow run nexvirome \
    -profile <docker/singularity/conda> \
@@ -80,7 +84,21 @@ nextflow run nexvirome \
    --mask_bed         $DB/nexvirome_db.idx
 ```
 
-To start from already host-removed / trimmed reads, add `--skip_host_removal --skip_cutadapt`.
+**Mode B — from MMseqs2 onward (reads already host-removed / trimmed).** Skip the
+QC/trimming/host-removal front end with `--skip_host_removal --skip_cutadapt`
+(no `--host_fasta` needed):
+
+```bash
+nextflow run nexvirome \
+   -profile <docker/singularity/conda> \
+   --input            samplesheet.csv \
+   --outdir           results \
+   --skip_host_removal \
+   --skip_cutadapt \
+   --mmseqs_database  $DB/mmseqs_db/viral_20260525 \
+   --taxonomy_db      $DB/tax_seq_v20260526_MSL41.db \
+   --mask_bed         $DB/nexvirome_db.idx
+```
 
 **Default classification parameters** are the locked "Method B" settings used in
 the paper (best-hit assignment, unmasked-breadth ≥ 0.01, per-taxon read floor
