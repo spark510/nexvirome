@@ -36,7 +36,17 @@ The pipeline steps are:
 ## Usage
 
 > [!NOTE]
-> If you are new to Nextflow and nf-core, please refer to [this page](https://nf-co.re/docs/usage/installation) on how to set-up Nextflow. Make sure to [test your setup](https://nf-co.re/docs/usage/introduction#how-to-run-a-pipeline) with `-profile test` before running the workflow on actual data.
+> If you are new to Nextflow and nf-core, please refer to [this page](https://nf-co.re/docs/usage/installation) on how to set-up Nextflow. You need Nextflow (≥24.04.2) and one container engine (Docker, Singularity, or Conda).
+
+### 0. Get the pipeline
+
+Nextflow pulls the code straight from GitHub — no manual clone needed:
+
+```bash
+nextflow pull spark510/nexvirome
+```
+
+(Or `git clone https://github.com/spark510/nexvirome.git` and run the local `main.nf`.)
 
 ### 1. Prepare a samplesheet
 
@@ -84,7 +94,7 @@ The pipeline can be run in two modes:
 **Mode A — full pipeline (from raw FASTQ).** QC → trimming → host removal → MMseqs2 → classification → OTU merge:
 
 ```bash
-nextflow run nexvirome \
+nextflow run spark510/nexvirome \
    -profile <docker/singularity/conda> \
    --input            samplesheet.csv \
    --outdir           results \
@@ -99,7 +109,7 @@ QC/trimming/host-removal front end with `--skip_host_removal --skip_cutadapt`
 (no `--host_fasta` needed):
 
 ```bash
-nextflow run nexvirome \
+nextflow run spark510/nexvirome \
    -profile <docker/singularity/conda> \
    --input            samplesheet.csv \
    --outdir           results \
