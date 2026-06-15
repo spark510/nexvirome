@@ -94,7 +94,7 @@ The pipeline supports two run modes.
 QC → trimming → host removal → MMseqs2 → classification → OTU merge:
 
 ```bash
-nextflow run nexvirome \
+nextflow run spark510/nexvirome \
    --input            ./samplesheet.csv \
    --outdir           ./results \
    --host_index       chm13v2.0 \
@@ -112,7 +112,7 @@ Skip the QC/trimming/host-removal front end with `--skip_host_removal --skip_cut
 (no `--host_fasta` required):
 
 ```bash
-nextflow run nexvirome \
+nextflow run spark510/nexvirome \
    --input            ./samplesheet.csv \
    --outdir           ./results \
    --skip_host_removal \
@@ -144,7 +144,7 @@ Pipeline settings can be provided in a `yaml` or `json` file via `-params-file <
 The above pipeline run specified with a params file in yaml format:
 
 ```bash
-nextflow run nexvirome -profile docker -params-file params.yaml
+nextflow run spark510/nexvirome -profile docker -params-file params.yaml
 ```
 
 with:
@@ -163,7 +163,7 @@ You can also generate such `YAML`/`JSON` files via [nf-core/launch](https://nf-c
 When you run the above command, Nextflow automatically pulls the pipeline code from GitHub and stores it as a cached version. When running the pipeline after this, it will always use the cached version if available - even if the pipeline has been updated since. To make sure that you're running the latest version of the pipeline, make sure that you regularly update the cached version of the pipeline:
 
 ```bash
-nextflow pull nexvirome
+nextflow pull spark510/nexvirome
 ```
 
 ### Reproducibility
