@@ -80,15 +80,15 @@ workflow PROFILING {
 
     ch_input_for_profiling = reads
         .map{
-            meta, reads ->
-            [[type: 'short'], meta, reads]
+            meta, rds ->
+            [[type: 'short'], meta, rds]
         }
         .combine(ch_dbs, by: 0)
         .map{
-            db_type, meta, reads, db_meta, db ->
-            [ meta, reads, db_meta, db ]
+            db_type, meta, rds, db_meta, db ->
+            [ meta, rds, db_meta, db ]
         }
-        .branch { meta, reads, db_meta, db ->
+        .branch { meta, rds, db_meta, db ->
             mmseqs: db_meta.tool == 'mmseqs'
 
             //centrifuge: db_meta.tool == 'centrifuge'
@@ -114,10 +114,11 @@ workflow PROFILING {
         // distinguish between kraken and bracken parameters
         ch_input_for_mmseqs = ch_input_for_profiling.mmseqs
                                 .map {
-                                    meta, reads, db_meta, db ->
+                                    meta, rds, db_meta, db ->
 
                                         // Only take first element if one exists
                                         def parsed_params = db_meta['db_params'].split(";")
+                                        def db_meta_new
                                         if ( parsed_params.size() == 2 ) {
                                             db_meta_new = db_meta + [db_params: parsed_params[0]]
                                         } else if ( parsed_params.size() == 0 ) {
@@ -126,7 +127,7 @@ workflow PROFILING {
                                             db_meta_new = db_meta + [db_params: parsed_params[0]]
                                         }
 
-                                    [ meta, reads, db_meta_new, db ]
+                                    [ meta, rds, db_meta_new, db ]
                                 }
                                 .multiMap {
                                     it ->
