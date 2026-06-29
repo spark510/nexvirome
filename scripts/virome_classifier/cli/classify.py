@@ -769,12 +769,33 @@ def main():
             or getattr(args, "min_read_count", 0) > 0
         ):
             from ..classification.fp_postfilter import apply_fp_postfilter
+            taxids_before = set(lca_df["lca_taxid"].astype(int)) if "lca_taxid" in lca_df else set()
             lca_df = apply_fp_postfilter(
                 lca_df, tax,
                 min_rel_abundance=getattr(args, "min_rel_abundance", 0.0),
                 min_unique_fraction=getattr(args, "min_unique_fraction", 0.0),
                 min_read_count=getattr(args, "min_read_count", 0),
             )
+            # The coverage_abundance.tsv (and the TPM table built from it) was
+            # written inside run_coverage_mode BEFORE this post-filter, so it still
+            # lists taxa the filter just dropped. Re-filter it to the surviving
+            # taxids and rewrite, keeping read_count / TPM consistent with the
+            # read-classification output.
+            taxids_after = set(lca_df["lca_taxid"].astype(int)) if "lca_taxid" in lca_df else set()
+            if args.mode == "coverage" and taxids_after != taxids_before:
+                ab_path = output_dir / f"{args.sample}_coverage_abundance.tsv"
+                if ab_path.exists():
+                    ab = pd.read_csv(ab_path, sep="\t")
+                    if "taxon_taxid" in ab.columns:
+                        ab = ab[ab["taxon_taxid"].astype(int).isin(taxids_after)]
+                        # TPM is relative within a sample → renormalize to 1e6 over kept taxa
+                        if "TPM" in ab.columns and ab["TPM"].sum() > 0:
+                            ab["TPM"] = ab["TPM"] / ab["TPM"].sum() * 1_000_000
+                        if "normalized_abundance" in ab.columns and ab["read_count"].sum() > 0:
+                            ab["normalized_abundance"] = ab["read_count"] / ab["read_count"].sum()
+                        ab.to_csv(ab_path, sep="\t", index=False)
+                        log_info(f"  [FP-postfilter] coverage_abundance re-synced "
+                                 f"to {len(ab)} taxa (TPM renormalized)")
 
         # ====== COMMON: optional phage -> host-genus roll-up ======
         # Collapses phage cross-map dispersion into per-host taxa; non-phage and
