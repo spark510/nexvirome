@@ -14,6 +14,39 @@ from ..core import log_info, log_verbose
 from ..taxonomy import TaxonomyDB
 
 
+def partition_nonempty_samples(
+    lca_files: Dict[str, Union[str, Path]],
+    count_column: str = "read_count",
+) -> tuple[Dict[str, Union[str, Path]], List[str]]:
+    """Split sample files into (kept, dropped) by whether they have any
+    classified reads.
+
+    A sample is treated as EMPTY (0 identified reads) when its per-query
+    classification CSV has no data rows, or its read_count sum is 0, or it lacks
+    the 'lca_taxid' column entirely (e.g. a header-only file written for a
+    fully-filtered sample). Empty samples are excluded from the OTU merge so a
+    single 0-read sample cannot break the whole table; the dropped names are
+    returned so the caller can log them.
+    """
+    kept: Dict[str, Union[str, Path]] = {}
+    dropped: List[str] = []
+    for sample_name, file_path in lca_files.items():
+        try:
+            df = pd.read_csv(file_path)
+        except Exception:
+            dropped.append(sample_name)
+            continue
+        if "lca_taxid" not in df.columns or len(df) == 0:
+            dropped.append(sample_name)
+            continue
+        if count_column in df.columns and pd.to_numeric(
+            df[count_column], errors="coerce").fillna(0).sum() <= 0:
+            dropped.append(sample_name)
+            continue
+        kept[sample_name] = file_path
+    return kept, dropped
+
+
 def load_lca_results(file_path: Union[str, Path]) -> pd.DataFrame:
     """
     Load LCA classification results from CSV file.
@@ -260,7 +293,8 @@ def filter_otu_table(
         otu_table = otu_table.loc[:, prevalence >= min_prevalence]
 
     remaining_taxa = len(otu_table.columns)
-    log_info(f"✅ Filtered: {original_taxa} → {remaining_taxa} taxa ({remaining_taxa / original_taxa * 100:.1f}%)")
+    pct = (remaining_taxa / original_taxa * 100) if original_taxa else 0.0
+    log_info(f"✅ Filtered: {original_taxa} → {remaining_taxa} taxa ({pct:.1f}%)")
 
     return otu_table
 
@@ -364,6 +398,34 @@ def create_otu_pipeline(
     log_info("=" * 70)
     log_info("OTU TABLE GENERATION PIPELINE")
     log_info("=" * 70)
+
+    # Drop samples with 0 identified reads BEFORE merging, so one empty sample
+    # cannot break the whole table. Report which ones were dropped.
+    n_total = len(lca_files)
+    lca_files, empty_samples = partition_nonempty_samples(lca_files)
+    if empty_samples:
+        log_info(
+            f"\n⚠️  Excluded {len(empty_samples)}/{n_total} sample(s) with 0 "
+            f"identified reads from the OTU merge: {', '.join(sorted(empty_samples))}"
+        )
+        # also persist the list so it survives in the run outputs
+        try:
+            with open(output_path / "empty_samples.txt", "w") as fh:
+                fh.write("# samples excluded from OTU merge (0 identified reads)\n")
+                for s in sorted(empty_samples):
+                    fh.write(f"{s}\n")
+            log_info(f"   (logged to {output_path / 'empty_samples.txt'})")
+        except Exception:
+            pass
+    if not lca_files:
+        log_info("\n❌ All samples had 0 identified reads — no OTU table to build.")
+        # write empty placeholder tables so downstream steps don't crash on missing files
+        empty = pd.DataFrame()
+        for name in ["raw", *ranks]:
+            export_otu_table(empty, output_path / f"otu_table_{name}.csv", transpose=True)
+        return {name: empty for name in ["raw", *ranks]}
+
+    log_info(f"✅ Merging {len(lca_files)} sample(s) with classified reads.")
 
     results = {}
 

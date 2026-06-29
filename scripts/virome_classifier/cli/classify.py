@@ -663,64 +663,61 @@ def run_em_mode(args, tax, combined_hits, output_dir):
 
 
 def run_lca_mode(args, tax, combined_hits, output_dir):
-    """LCA pipeline: quality filter -> [masking: classify -> drop_all_masked]
-    -> breadth gate -> LCA -> export.
+    """DISABLED — LCA mode was retired in favour of coverage (method B).
 
-    Masking (classification + optional all_masked drop) is now separated from
-    the breadth gate so masking can act independently. With --drop-all-masked
-    OFF and the breadth gate ON (defaults), the path is byte-identical to the
-    previous behaviour: classify_hits adds a label column that is dropped before
-    the gate, and filter_by_unmasked_coverage runs unchanged on the same hits.
+    The implementation below is kept verbatim (commented out) so it can be
+    restored if an LCA roll-up is ever needed again; the dispatch entry in
+    MODE_DISPATCH is also commented out, so this function is never reached.
     """
-    filtered_hits = apply_quality_filter(
-        combined_hits, args.min_identity, args.min_length,
-        args.max_evalue, args.min_query_coverage, args.verbose,
+    raise RuntimeError(
+        "LCA mode is disabled — use --mode coverage (method B: best-hit + "
+        "unmasked breadth >= 0.01 + n>=3, with TPM abundance)."
     )
-
-    mf = build_masking_filter(args.mask) if args.mask else None
-
-    # ── masking stage (independent of breadth gate) ──
-    hits = filtered_hits
-    if mf is not None and getattr(args, "drop_all_masked", False):
-        n_in, reads_in = len(hits), hits["query"].nunique()
-        hits = mf.drop_all_masked_reads(hits)
-        log_info(f"🧽 all_masked drop: {n_in:,}→{len(hits):,} hits, "
-                 f"{reads_in:,}→{hits['query'].nunique():,} reads")
-
-    # ── breadth gate (optional) ──
-    if mf is not None and not getattr(args, "no_breadth_gate", False):
-        result = apply_breadth_gate(mf, hits, args.min_unmasked_coverage)
-        passed_hits, stats_df = result.passed, result.stats
-    else:
-        # breadth gate skipped (or no mask): masking-only / unfiltered passthrough
-        passed_hits = hits
-        stats_df = mf.calculate_stats(hits) if mf is not None else pd.DataFrame()
-
-    if getattr(args, "mode", "lca") == "lca_conditional":
-        lca_df = perform_conditional_lca_classification(
-            passed_hits, tax, args.verbose,
-            min_species_confidence=getattr(args, "min_species_confidence", 0.5),
-        )
-    elif getattr(args, "read_assign", "best_hit") == "best_hit":
-        # STAGE-0: best-hit (user core / Strategy B) — one taxon per read
-        from ..classification.besthit_classifier import BestHitClassifier
-        lca_df = BestHitClassifier(tax, args.verbose).classify(
-            passed_hits, fix_rank=getattr(args, "lca_fix_rank", "none"))
-    else:
-        lca_df = perform_lca_classification(
-            passed_hits, tax, args.verbose,
-            fix_rank=getattr(args, "lca_fix_rank", "none"),
-        )
-    export_results(lca_df, passed_hits, stats_df, output_dir, args.sample, args.verbose)
-    return lca_df
+    # ---- original LCA implementation (kept for reference) ----
+    # filtered_hits = apply_quality_filter(
+    #     combined_hits, args.min_identity, args.min_length,
+    #     args.max_evalue, args.min_query_coverage, args.verbose,
+    # )
+    # mf = build_masking_filter(args.mask) if args.mask else None
+    # hits = filtered_hits
+    # if mf is not None and getattr(args, "drop_all_masked", False):
+    #     n_in, reads_in = len(hits), hits["query"].nunique()
+    #     hits = mf.drop_all_masked_reads(hits)
+    #     log_info(f"🧽 all_masked drop: {n_in:,}→{len(hits):,} hits, "
+    #              f"{reads_in:,}→{hits['query'].nunique():,} reads")
+    # if mf is not None and not getattr(args, "no_breadth_gate", False):
+    #     result = apply_breadth_gate(mf, hits, args.min_unmasked_coverage)
+    #     passed_hits, stats_df = result.passed, result.stats
+    # else:
+    #     passed_hits = hits
+    #     stats_df = mf.calculate_stats(hits) if mf is not None else pd.DataFrame()
+    # if getattr(args, "mode", "lca") == "lca_conditional":
+    #     lca_df = perform_conditional_lca_classification(
+    #         passed_hits, tax, args.verbose,
+    #         min_species_confidence=getattr(args, "min_species_confidence", 0.5),
+    #     )
+    # elif getattr(args, "read_assign", "best_hit") == "best_hit":
+    #     from ..classification.besthit_classifier import BestHitClassifier
+    #     lca_df = BestHitClassifier(tax, args.verbose).classify(
+    #         passed_hits, fix_rank=getattr(args, "lca_fix_rank", "none"))
+    # else:
+    #     lca_df = perform_lca_classification(
+    #         passed_hits, tax, args.verbose,
+    #         fix_rank=getattr(args, "lca_fix_rank", "none"),
+    #     )
+    # export_results(lca_df, passed_hits, stats_df, output_dir, args.sample, args.verbose)
+    # return lca_df
 
 
 # Mode registry: name -> callable(args, tax, combined_hits, output_dir) -> lca_df.
 # The coverage/em/ml_filter runners return richer tuples (lca_df first); the
 # adapters keep the dispatch uniform. Register a new mode here — no if/elif edits.
 MODE_DISPATCH = {
-    "lca":             run_lca_mode,
-    "lca_conditional": run_lca_mode,   # same pipeline; mode flag triggers retreat
+    # LCA mode is DISABLED — coverage (method B: best-hit + unmasked breadth>=0.01
+    # + n>=3, with TPM abundance) is the validated production mode. Re-enable by
+    # un-commenting if an LCA roll-up is ever needed again (run_lca_mode is kept).
+    # "lca":             run_lca_mode,
+    # "lca_conditional": run_lca_mode,   # same pipeline; mode flag triggers retreat
     "coverage":        lambda a, t, h, o: run_coverage_mode(a, t, h, o)[0],
     "em":              lambda a, t, h, o: run_em_mode(a, t, h, o)[0],
     "ml_filter":       lambda a, t, h, o: run_ml_filter_mode(a, t, h, o)[0],
@@ -791,11 +788,18 @@ def main():
         # ====== COMMON: per-query classification CSV ======
         # LCA mode writes this via export_results(); coverage/em modes write it
         # here so every mode emits a consistent {sample}_read_classification.csv
-        # (consumed by the Nextflow module and OTU merge).
-        if args.mode in ("coverage", "em") and len(lca_df) > 0:
+        # (consumed by the Nextflow module and OTU merge). ALWAYS write it — even
+        # for a 0-hit sample (empty frame with header) — so the OTU merge can see
+        # the sample, report it as a 0-read sample, and exclude it cleanly rather
+        # than silently missing it.
+        if args.mode in ("coverage", "em"):
             output_dir.mkdir(parents=True, exist_ok=True)
+            if len(lca_df) == 0 and len(lca_df.columns) == 0:
+                lca_df = pd.DataFrame(columns=["query", "lca_taxid", "lca_name",
+                                               "lca_rank", "read_count"])
             lca_df.to_csv(output_dir / f"{args.sample}_read_classification.csv", index=False)
-            log_info(f"  Classification: {output_dir / f'{args.sample}_read_classification.csv'}")
+            log_info(f"  Classification: {output_dir / f'{args.sample}_read_classification.csv'}"
+                     + (" (0 reads)" if len(lca_df) == 0 else ""))
 
         # ====== COMMON: Kraken reports ======
         # Always emit a .kreport, even for a zero-read / fully-filtered sample, so

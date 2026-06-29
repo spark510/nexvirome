@@ -221,10 +221,20 @@ class AlignmentParser:
     def _parse_mmseqs(self, file_path: Path) -> pd.DataFrame:
         """Parse MMseqs2 format. Auto-detects header and column layout."""
         with open(file_path, 'r') as f:
-            first_line = f.readline().strip()
+            lines = f.readlines()
 
+        # Empty / header-only result (a sample with 0 viral hits): return an empty
+        # frame with the standard columns instead of crashing on lines[1]. The
+        # downstream classifier handles an empty hit set and writes empty outputs,
+        # so a 0-read sample no longer breaks the run.
+        first_line = lines[0].strip() if lines else ""
         has_header = first_line.startswith('query\t')
-        data_line = first_line if not has_header else open(file_path).readlines()[1].strip()
+        data_lines = lines[1:] if has_header else lines
+        if not any(ln.strip() for ln in data_lines):
+            log_info(f"  ⚠️  {file_path.name}: no alignment hits (0 viral reads) — empty result")
+            return pd.DataFrame(columns=self.MMSEQS_COLUMNS)
+
+        data_line = next(ln.strip() for ln in data_lines if ln.strip())
         n_cols = len(data_line.split('\t'))
 
         # Detect format: legacy (mismatch/gapopen, 15 cols with int-like col5)
