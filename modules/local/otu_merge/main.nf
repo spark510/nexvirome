@@ -8,6 +8,7 @@ process OTU_MERGE {
 
     input:
     path lca_files
+    path abundance_files
     path taxonomy_db
 
     output:
@@ -16,6 +17,9 @@ process OTU_MERGE {
     path "otu_tables/otu_table_species.csv", emit: species, optional: true
     path "otu_tables/otu_table_family.csv", emit: family, optional: true
     path "otu_tables/otu_table_phage_host.csv", emit: phage_host, optional: true
+    path "otu_tables/otu_table_*_tpm.csv", emit: tpm, optional: true
+    path "otu_tables/otu_table_*_readcount.csv", emit: readcount, optional: true
+    path "otu_tables/empty_samples.txt", emit: empty_samples, optional: true
     path "versions.yml", emit: versions
 
     when:
@@ -31,12 +35,16 @@ process OTU_MERGE {
     // per-rank tables are unaffected). Disable with ext.phage_host = false.
     def phage_host = (task.ext.phage_host == null || task.ext.phage_host) ? '--phage-host' : ''
     """
-    # Create input directory for LCA files
+    # Create input directory; stage both the per-query classification CSVs and
+    # the per-sample coverage_abundance.tsv files (read assignment is NOT merged,
+    # but the taxon-level abundance metrics — read_count + TPM — are).
     mkdir -p lca_input
 
-    # Copy all LCA files to input directory
     for file in ${lca_files}; do
         cp "\$file" lca_input/
+    done
+    for file in ${abundance_files}; do
+        cp "\$file" lca_input/ 2>/dev/null || true
     done
 
     # Run OTU merge
@@ -44,6 +52,7 @@ process OTU_MERGE {
     python -m virome_classifier.cli.merge_otu \\
         --input-dir lca_input \\
         --pattern "*_read_classification.csv" \\
+        --abundance-pattern "*_coverage_abundance.tsv" \\
         --taxonomy ${taxonomy_db} \\
         --output otu_tables \\
         --ranks ${ranks} \\
@@ -66,6 +75,8 @@ process OTU_MERGE {
     touch otu_tables/otu_table_raw.csv
     touch otu_tables/otu_table_genus.csv
     touch otu_tables/otu_table_species.csv
+    touch otu_tables/otu_table_species_tpm.csv
+    touch otu_tables/otu_table_species_readcount.csv
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":

@@ -251,6 +251,62 @@ def build_otu_table_at_rank(
     return otu_table
 
 
+def build_abundance_table(
+    abundance_files: Dict[str, Union[str, Path]],
+    tax: Optional[TaxonomyDB] = None,
+    value_column: str = "TPM",
+    rank: Optional[str] = None,
+    taxid_column: str = "taxon_taxid",
+) -> pd.DataFrame:
+    """Build a sample × taxon matrix of a precomputed abundance metric (default
+    TPM) from per-sample coverage_abundance.tsv files.
+
+    Unlike the read-count OTU tables (which re-count per-query CSVs), the abundance
+    metrics — TPM, RPK, normalized_abundance — are already computed per taxon by
+    the coverage classifier and only need to be assembled across samples. Reads
+    each sample's coverage_abundance.tsv, optionally rolls taxids up to a rank,
+    sums the value per (sample, taxon), and pivots to samples × taxa.
+
+    Empty samples (0 hits → header-only TSV) contribute an all-zero column.
+    """
+    all_data = []
+    for sample_name, file_path in abundance_files.items():
+        try:
+            df = pd.read_csv(file_path, sep="\t")
+        except Exception:
+            df = pd.DataFrame()
+        if df.empty or taxid_column not in df.columns or value_column not in df.columns:
+            all_data.append(pd.Series(dtype=float, name=sample_name))
+            continue
+
+        if rank and tax is not None:
+            # roll taxids up to the requested rank
+            rolled = {}
+            for _, row in df.iterrows():
+                tid = int(row[taxid_column])
+                lineage = tax.get_lineage(tid)
+                target = None
+                for anc in reversed(lineage):
+                    if tax.get_rank(anc) == rank:
+                        target = anc
+                        break
+                if target is not None:
+                    rolled[target] = rolled.get(target, 0.0) + float(row[value_column])
+            series = pd.Series(rolled, name=sample_name, dtype=float)
+        else:
+            series = df.groupby(taxid_column)[value_column].sum().astype(float)
+            series.name = sample_name
+        all_data.append(series)
+
+    table = pd.DataFrame(all_data).fillna(0.0)
+    table.index.name = "sample"
+
+    if tax is not None and len(table.columns):
+        taxid_to_name = {t: tax.get_name(int(t)) or f"taxid_{t}" for t in table.columns}
+        table.columns = pd.Index([f"{taxid_to_name[t]} ({t})" for t in table.columns])
+    return table
+
+
 def filter_otu_table(
     otu_table: pd.DataFrame,
     min_count: int = 0,

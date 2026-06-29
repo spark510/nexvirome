@@ -82,7 +82,10 @@ workflow VIROME_CLASSIFICATION {
     ch_lca_output = VIROME_CLASSIFY_COVERAGE.out.classification
     ch_kraken_output = VIROME_CLASSIFY_COVERAGE.out.kraken
     ch_kreport_output = VIROME_CLASSIFY_COVERAGE.out.kreport
-    ch_abundance_output = VIROME_CLASSIFY_COVERAGE.out.abundance
+    // coverage_abundance.tsv carries read_count + TPM (per-taxon); the plain
+    // _abundance.tsv is only a fraction summary, so use the coverage one for the
+    // TPM/read_count OTU merge.
+    ch_abundance_output = VIROME_CLASSIFY_COVERAGE.out.coverage_abundance
 
     // ---- DISABLED: LCA classification branch (kept for reference) ----
     // } else {
@@ -106,8 +109,16 @@ workflow VIROME_CLASSIFICATION {
             .map { meta, lca -> lca }
             .collect()
 
+        // per-sample coverage_abundance.tsv (read_count + TPM) → merged into
+        // sample × taxon abundance matrices alongside the read-count OTU tables
+        ch_all_abundance = ch_abundance_output
+            .map { meta, ab -> ab }
+            .collect()
+            .ifEmpty([])
+
         OTU_MERGE(
             ch_all_lca,
+            ch_all_abundance,
             ch_taxonomy_db
         )
         ch_versions = ch_versions.mix(OTU_MERGE.out.versions)
