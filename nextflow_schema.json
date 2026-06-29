@@ -80,13 +80,12 @@
                 },
                 "virome_classification_method": {
                     "type": "string",
-                    "default": "lca",
+                    "default": "coverage",
                     "enum": [
-                        "lca",
                         "coverage"
                     ],
                     "fa_icon": "fas fa-code-branch",
-                    "description": "Classification method: simple LCA or coverage-based (segment-aware)."
+                    "description": "Classification method. 'coverage' (method B: best-hit + unmasked breadth >= 0.01 + n>=3, with TPM abundance) is the validated production mode. ('lca' is currently disabled.)"
                 },
                 "mmseqs_database": {
                     "type": "string",
