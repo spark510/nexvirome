@@ -8,7 +8,7 @@
 
 include { MMSEQS_CREATEDB          } from '../../modules/nf-core/mmseqs/createdb/main'
 include { MMSEQS_EASYSEARCH        } from '../../modules/nf-core/mmseqs/easysearch/main'
-include { VIROME_CLASSIFY          } from '../../modules/local/virome_classify/main'
+// include { VIROME_CLASSIFY       } from '../../modules/local/virome_classify/main'  // DISABLED: LCA mode retired
 include { VIROME_CLASSIFY_COVERAGE } from '../../modules/local/virome_classify_coverage/main'
 include { OTU_MERGE                } from '../../modules/local/otu_merge/main'
 
@@ -22,7 +22,7 @@ workflow VIROME_CLASSIFICATION {
 
     main:
     ch_versions = Channel.empty()
-    def method = params.virome_classification_method ?: 'lca'  // Default to LCA method
+    def method = params.virome_classification_method ?: 'coverage'  // Default to coverage (method B: best-hit + unmasked breadth + TPM); LCA is disabled
 
     //
     // Step 1: Separate R1 and R2 for individual MMseqs2 searches
@@ -67,30 +67,36 @@ workflow VIROME_CLASSIFICATION {
     //
     // Step 4: Run virome classification (LCA or Coverage-based)
     //
-    if (method == 'coverage') {
-        VIROME_CLASSIFY_COVERAGE(
-            ch_paired_results,
-            ch_taxonomy_db,
-            ch_mask_bed,
-            ch_segment_info
-        )
-        ch_versions = ch_versions.mix(VIROME_CLASSIFY_COVERAGE.out.versions.first())
-        ch_lca_output = VIROME_CLASSIFY_COVERAGE.out.classification
-        ch_kraken_output = VIROME_CLASSIFY_COVERAGE.out.kraken
-        ch_kreport_output = VIROME_CLASSIFY_COVERAGE.out.kreport
-        ch_abundance_output = VIROME_CLASSIFY_COVERAGE.out.abundance
-    } else {
-        VIROME_CLASSIFY(
-            ch_paired_results,
-            ch_taxonomy_db,
-            ch_mask_bed
-        )
-        ch_versions = ch_versions.mix(VIROME_CLASSIFY.out.versions.first())
-        ch_lca_output = VIROME_CLASSIFY.out.lca
-        ch_kraken_output = VIROME_CLASSIFY.out.kraken
-        ch_kreport_output = VIROME_CLASSIFY.out.kreport
-        ch_abundance_output = VIROME_CLASSIFY.out.abundance
+    // Coverage (method B) is the only supported classification path. The LCA
+    // branch is disabled — see the commented-out block below to re-enable.
+    if (method != 'coverage') {
+        error "virome_classification_method='${method}' is not supported; only 'coverage' (method B) is enabled. (LCA was retired.)"
     }
+    VIROME_CLASSIFY_COVERAGE(
+        ch_paired_results,
+        ch_taxonomy_db,
+        ch_mask_bed,
+        ch_segment_info
+    )
+    ch_versions = ch_versions.mix(VIROME_CLASSIFY_COVERAGE.out.versions.first())
+    ch_lca_output = VIROME_CLASSIFY_COVERAGE.out.classification
+    ch_kraken_output = VIROME_CLASSIFY_COVERAGE.out.kraken
+    ch_kreport_output = VIROME_CLASSIFY_COVERAGE.out.kreport
+    ch_abundance_output = VIROME_CLASSIFY_COVERAGE.out.abundance
+
+    // ---- DISABLED: LCA classification branch (kept for reference) ----
+    // } else {
+    //     VIROME_CLASSIFY(
+    //         ch_paired_results,
+    //         ch_taxonomy_db,
+    //         ch_mask_bed
+    //     )
+    //     ch_versions = ch_versions.mix(VIROME_CLASSIFY.out.versions.first())
+    //     ch_lca_output = VIROME_CLASSIFY.out.lca
+    //     ch_kraken_output = VIROME_CLASSIFY.out.kraken
+    //     ch_kreport_output = VIROME_CLASSIFY.out.kreport
+    //     ch_abundance_output = VIROME_CLASSIFY.out.abundance
+    // }
 
     //
     // Step 5: Collect all classification results for OTU table generation
