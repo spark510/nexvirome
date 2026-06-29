@@ -276,6 +276,13 @@ class AlignmentParser:
         if is_legacy:
             df = df.drop(columns=['mismatch', 'gapopen'], errors='ignore')
 
+        # Normalize identity to a 0-1 fraction. MMseqs2 'pident' is reported on a
+        # 0-100 percent scale (e.g. 96.9), but the quality filter compares against
+        # min_identity as a fraction (0.85). Without this, fident values of 68-100
+        # always pass a 0.85 cut and the identity filter is silently a no-op.
+        if 'fident' in df.columns and len(df) and df['fident'].max() > 1.0:
+            df['fident'] = (df['fident'] / 100.0).astype('float32')
+
         return df
 
     def _parse_blast(self, file_path: Path) -> pd.DataFrame:
