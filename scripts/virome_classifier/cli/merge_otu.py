@@ -22,6 +22,7 @@ from typing import Dict
 from ..core import log_info, set_verbose
 from ..taxonomy import TaxonomyDB
 from ..reporting import create_otu_pipeline
+from ..reporting.otu_table import build_abundance_table, export_otu_table
 
 
 def parse_args():
@@ -70,6 +71,15 @@ Examples:
         type=str,
         required=True,
         help="Taxonomy database (SQLite)",
+    )
+    input_group.add_argument(
+        "--abundance-pattern",
+        type=str,
+        default="*_coverage_abundance.tsv",
+        help="Glob pattern for per-sample coverage_abundance.tsv files. When "
+             "found, ALSO merge their read_count and TPM into sample × taxon "
+             "matrices at each rank (otu_table_<rank>_readcount.csv / _tpm.csv). "
+             "Set to '' to skip abundance merging. (default: *_coverage_abundance.tsv)",
     )
 
     # Output options
@@ -158,10 +168,13 @@ def find_lca_files(input_dir: str, pattern: str) -> Dict[str, Path]:
     # Find matching files
     lca_files = {}
     for file_path in input_path.glob(pattern):
-        # Extract sample name from filename
-        # Remove common suffixes
+        # Extract sample name from filename by stripping the known per-sample
+        # output suffixes (longest first so '_read_classification' wins over
+        # '_classification', and the abundance suffix is handled too).
         sample_name = file_path.stem
-        for suffix in ["_lca_classification", "_lca", "_classification"]:
+        for suffix in ["_read_classification", "_coverage_abundance",
+                       "_coverage_summary", "_lca_classification",
+                       "_classification", "_abundance", "_lca"]:
             if sample_name.endswith(suffix):
                 sample_name = sample_name[: -len(suffix)]
                 break
@@ -266,6 +279,34 @@ def main():
             if "species" in ph_tables:
                 otu_tables["phage_host"] = ph_tables["species"]
             log_info(f"✅ phage-host OTU table: {ph_out}")
+
+        # 3c. Abundance matrices (read_count + TPM) from per-sample
+        # coverage_abundance.tsv. These metrics are precomputed per taxon by the
+        # coverage classifier, so we only assemble them across samples (taxon-rolled
+        # to each rank). read assignment files (_read_classification.csv, .kraken)
+        # are intentionally NOT merged — only taxon-level summaries are.
+        if getattr(args, "abundance_pattern", ""):
+            abund_files = find_lca_files(args.input_dir, args.abundance_pattern)
+            if abund_files:
+                log_info(f"\n📈 Merging abundance metrics (read_count, TPM) from "
+                         f"{len(abund_files)} coverage_abundance.tsv files...")
+                # taxid-level (raw) + each requested rank
+                abund_ranks = [None] + list(args.ranks)
+                for metric in ("read_count", "TPM"):
+                    for rk in abund_ranks:
+                        tab = build_abundance_table(
+                            {n: str(p) for n, p in abund_files.items()},
+                            tax=tax, value_column=metric, rank=rk,
+                        )
+                        suffix = "raw" if rk is None else rk
+                        mlabel = "readcount" if metric == "read_count" else "tpm"
+                        out_f = Path(args.output) / f"otu_table_{suffix}_{mlabel}.csv"
+                        export_otu_table(tab, out_f, transpose=True)
+                        otu_tables[f"{suffix}_{mlabel}"] = tab
+                log_info(f"✅ Abundance matrices written (read_count + TPM per rank).")
+            else:
+                log_info(f"\n(no coverage_abundance.tsv found for pattern "
+                         f"'{args.abundance_pattern}' — skipping TPM merge)")
 
         # Summary
         print("\n" + "=" * 70)
