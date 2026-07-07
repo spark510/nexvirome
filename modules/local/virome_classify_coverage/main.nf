@@ -39,12 +39,15 @@ process VIROME_CLASSIFY_COVERAGE {
     def classification_rank = task.ext.classification_rank ?: params.classification_rank ?: 'species'
     def multi_mapping_mode = task.ext.multi_mapping_mode ?: params.multi_mapping_mode ?: 'best_hit'
     def depth_entropy = (task.ext.use_depth_entropy ?: params.use_depth_entropy) ? '--use-depth-entropy' : ''
+    // Paired-end passes --r1/--r2; single-end passes a NO_FILE placeholder for R2,
+    // in which case classify runs in single-end mode via --input.
+    def is_single = r2_result.name == 'NO_FILE'
+    def input_arg = is_single ? "--input ${r1_result}" : "--r1 ${r1_result} --r2 ${r2_result}"
     """
     export PYTHONPATH="${moduleDir}/../../../scripts:\${PYTHONPATH:-}"
     python -m virome_classifier.cli.classify \\
         --mode coverage \\
-        --r1 ${r1_result} \\
-        --r2 ${r2_result} \\
+        ${input_arg} \\
         --taxonomy ${taxonomy_db} \\
         --mask ${mask_bed} \\
         --output . \\
