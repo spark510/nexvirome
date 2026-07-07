@@ -27,18 +27,23 @@ workflow VIROME_CLASSIFICATION {
     //
     // Step 1: Separate R1 and R2 for individual MMseqs2 searches
     //
+    // reads is [r1] for single-end or [r1, r2] for paired-end (meta.single_end set
+    // by the samplesheet parser). Emit an R1 search for every sample and an R2
+    // search only when a second file exists, so single-end input is supported.
     ch_r1_reads = ch_reads.map { meta, reads ->
         def r1_meta = meta + [read: 'R1']
-        [r1_meta, reads[0]]
+        [r1_meta, reads instanceof List ? reads[0] : reads]
     }
 
-    ch_r2_reads = ch_reads.map { meta, reads ->
-        def r2_meta = meta + [read: 'R2']
-        [r2_meta, reads[1]]
-    }
+    ch_r2_reads = ch_reads
+        .filter { meta, reads -> reads instanceof List && reads.size() > 1 && reads[1] }
+        .map { meta, reads ->
+            def r2_meta = meta + [read: 'R2']
+            [r2_meta, reads[1]]
+        }
 
     //
-    // Step 2: Run MMseqs2 on R1
+    // Step 2: Run MMseqs2 on each read file (R1 always, R2 if paired-end)
     //
     MMSEQS_EASYSEARCH(
         ch_r1_reads.mix(ch_r2_reads),
@@ -49,6 +54,7 @@ workflow VIROME_CLASSIFICATION {
     //
     // Step 3: Group R1 and R2 results back together
     //
+    def no_file = file("${projectDir}/assets/NO_FILE")
     ch_paired_results = MMSEQS_EASYSEARCH.out.tsv
         .map { meta, tsv ->
             def sample_id = meta.id
@@ -57,11 +63,13 @@ workflow VIROME_CLASSIFICATION {
         }
         .groupTuple(by: 0)
         .map { sample_id, read_types, tsvs ->
-            // Reorder to ensure R1 is first, R2 is second
+            // R1 always present; R2 only for paired-end. Single-end passes a
+            // NO_FILE placeholder as the second slot so the module can detect it.
             def meta = [id: sample_id]
             def r1_idx = read_types.findIndexOf { it == 'R1' }
             def r2_idx = read_types.findIndexOf { it == 'R2' }
-            [meta, tsvs[r1_idx], tsvs[r2_idx]]
+            def r2_tsv = r2_idx >= 0 ? tsvs[r2_idx] : no_file
+            [meta, tsvs[r1_idx], r2_tsv]
         }
 
     //
