@@ -252,7 +252,7 @@ def main():
                 rolled_files = {}
                 for name, path in lca_files.items():
                     df = pd.read_csv(path)
-                    if "lca_taxid" in df.columns and len(df):
+                    if "taxon_taxid" in df.columns and len(df):
                         df = apply_phage_host_rollup(df, tax2host, phage_set)
                     rp = Path(tmp) / f"{name}_phagehost.csv"
                     df.to_csv(rp, index=False)

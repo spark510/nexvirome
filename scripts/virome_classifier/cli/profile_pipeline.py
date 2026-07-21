@@ -190,23 +190,23 @@ def profile_pipeline(
 
         for query, group in query_groups:
             taxids = group['taxid'].unique().tolist()
-            lca_taxid = tax.compute_lca(taxids)
+            taxon_taxid = tax.compute_lca(taxids)
 
-            if lca_taxid and lca_taxid > 0:
+            if taxon_taxid and taxon_taxid > 0:
                 qlen = int(group.iloc[0]['qlen']) if 'qlen' in group.columns else 100
                 lca_results.append({
                     'query': query,
-                    'lca_taxid': lca_taxid,
+                    'taxon_taxid': taxon_taxid,
                     'qlen': qlen,
                     'read_count': 1,
                 })
 
         return pd.DataFrame(lca_results)
 
-    lca_df, t, m = profile_step("8. LCA Classification", lca_classify)
+    result_df, t, m = profile_step("8. LCA Classification", lca_classify)
     timings["8_lca_classification"] = t
     memory_usage["8_lca_classification"] = m
-    log_info(f"   Classified: {len(lca_df):,} queries")
+    log_info(f"   Classified: {len(result_df):,} queries")
 
     # Get LCA cache statistics
     cache_stats = tax.get_lca_cache_stats()
@@ -263,7 +263,7 @@ def profile_pipeline(
     print(f"  Combined: {len(combined_hits):,} hits")
     print(f"  After quality filter: {len(filtered_hits):,} hits ({len(filtered_hits)/len(combined_hits)*100:.1f}%)")
     print(f"  After masking: {len(result.passed):,} hits ({len(result.passed)/len(filtered_hits)*100:.1f}%)")
-    print(f"  LCA classified: {len(lca_df):,} queries")
+    print(f"  LCA classified: {len(result_df):,} queries")
 
     # Optimization suggestions
     print("\n💡 OPTIMIZATION SUGGESTIONS:")
@@ -332,7 +332,7 @@ def profile_pipeline(
             "combined": len(combined_hits),
             "filtered": len(filtered_hits),
             "passed": len(result.passed),
-            "lca": len(lca_df),
+            "lca": len(result_df),
         }
     }
 

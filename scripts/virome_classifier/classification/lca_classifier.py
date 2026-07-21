@@ -74,8 +74,8 @@ class LCAClassifier:
                 v = lca_cache[tup] = lt
             return v
 
-        g["lca_taxid"] = g["taxid"].map(_lca)
-        g = g[g["lca_taxid"].notna() & (g["lca_taxid"] > 0)]
+        g["taxon_taxid"] = g["taxid"].map(_lca)
+        g = g[g["taxon_taxid"].notna() & (g["taxon_taxid"] > 0)]
 
         name_cache: dict = {}
         rank_cache: dict = {}
@@ -86,25 +86,25 @@ class LCAClassifier:
             if t not in rank_cache: rank_cache[t] = tax.get_rank(t)
             return rank_cache[t]
 
-        lca_df = pd.DataFrame({
+        result_df = pd.DataFrame({
             "query": g.index,
-            "lca_taxid": g["lca_taxid"].astype(int).values,
-            "lca_name": [_nm(t) for t in g["lca_taxid"].astype(int)],
-            "lca_rank": [_rk(t) for t in g["lca_taxid"].astype(int)],
+            "taxon_taxid": g["taxon_taxid"].astype(int).values,
+            "taxon_name": [_nm(t) for t in g["taxon_taxid"].astype(int)],
+            "taxon_rank": [_rk(t) for t in g["taxon_taxid"].astype(int)],
             "qlen": (g["qlen"].astype(int).values if has_qlen else 100),
             "read_count": 1,
             "n_hits": g["n_hits"].astype(int).values,
             "n_unique_taxids": [len(t) for t in g["taxid"]],
             "all_taxids": [",".join(map(str, t)) for t in g["taxid"]],
         }).reset_index(drop=True)
-        log_info(f"✅ Classified {len(lca_df):,} queries")
+        log_info(f"✅ Classified {len(result_df):,} queries")
 
-        if len(lca_df) > 0:
+        if len(result_df) > 0:
             log_info("\nLCA rank distribution:")
-            for rank, count in lca_df["lca_rank"].value_counts().items():
+            for rank, count in result_df["taxon_rank"].value_counts().items():
                 log_info(f"  {rank}: {count:,}")
 
-        return lca_df
+        return result_df
 
     def classify_conditional(
         self,
@@ -137,28 +137,28 @@ class LCAClassifier:
         # this genus's neighbourhood, how many resolve cleanly to THIS species vs. stay
         # ambiguous (genus/higher)? If the species captures only a small share of its
         # genus-level evidence, the species call is weakly supported → retreat to genus.
-        df["_genus"] = df["lca_taxid"].map(
+        df["_genus"] = df["taxon_taxid"].map(
             lambda t: tax.get_taxid_at_rank(int(t), "genus") or 0)
-        sp = df["lca_rank"] == "species"
+        sp = df["taxon_rank"] == "species"
 
         # reads per species (species-rank) and reads per genus (any rank under genus)
-        sp_reads = df[sp].groupby("lca_taxid").size()
+        sp_reads = df[sp].groupby("taxon_taxid").size()
         genus_reads = df.groupby("_genus").size()
         # species confidence = species_reads / genus_reads(its genus)
-        sp_genus = df[sp].groupby("lca_taxid")["_genus"].first()
+        sp_genus = df[sp].groupby("taxon_taxid")["_genus"].first()
         conf = {tid: (sp_reads[tid] / genus_reads.get(sp_genus[tid], sp_reads[tid]))
                 for tid in sp_reads.index}
         low_conf = {tid for tid, c in conf.items() if c < min_species_confidence}
 
         retreated = 0
         for i in df.index[sp]:
-            tid = df.at[i, "lca_taxid"]
+            tid = df.at[i, "taxon_taxid"]
             if tid in low_conf:
                 genus = tax.get_taxid_at_rank(int(tid), "genus")
                 if genus and genus > 0:
-                    df.at[i, "lca_taxid"] = genus
-                    df.at[i, "lca_rank"] = "genus"
-                    df.at[i, "lca_name"] = tax.get_name(genus)
+                    df.at[i, "taxon_taxid"] = genus
+                    df.at[i, "taxon_rank"] = "genus"
+                    df.at[i, "taxon_name"] = tax.get_name(genus)
                     retreated += 1
         log_info(f"  conditional retreat: {retreated:,} species-reads -> genus "
                  f"({len(low_conf)} low-confidence species, conf<{min_species_confidence})")

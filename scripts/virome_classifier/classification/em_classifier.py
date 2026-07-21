@@ -72,7 +72,7 @@ class EMClassifier:
             hits_df: Combined R1+R2 alignment hits DataFrame
 
         Returns:
-            (lca_df, abundance_df): LCA-compatible results and abundance table
+            (result_df, abundance_df): LCA-compatible results and abundance table
         """
         # Step 1: Quality filter
         log_info("\n🔍 EM Step 1: Quality filtering...")
@@ -208,9 +208,9 @@ class EMClassifier:
         for query, (taxid, confidence) in assignments.items():
             lca_rows.append({
                 'query': query,
-                'lca_taxid': taxid,
-                'lca_name': self.tax.get_name(taxid) or f"Unknown ({taxid})",
-                'lca_rank': self.tax.get_rank(taxid) or 'no rank',
+                'taxon_taxid': taxid,
+                'taxon_name': self.tax.get_name(taxid) or f"Unknown ({taxid})",
+                'taxon_rank': self.tax.get_rank(taxid) or 'no rank',
                 'qlen': 100,
                 'read_count': 1,
                 'n_hits': len(read_species[query]),
@@ -218,7 +218,7 @@ class EMClassifier:
                 'all_taxids': ','.join(str(t) for t in read_species[query].keys()),
             })
 
-        lca_df = pd.DataFrame(lca_rows)
+        result_df = pd.DataFrame(lca_rows)
 
         # Abundance table
         abundance_rows = []
@@ -253,7 +253,7 @@ class EMClassifier:
         log_info(f"✅ EM classification complete: {len(assignments):,} reads → "
                  f"{len(abundance_df)} species")
 
-        return lca_df, abundance_df
+        return result_df, abundance_df
 
     def _resolve_species_taxid(self, hits_df: pd.DataFrame) -> pd.DataFrame:
         """Add species_taxid column using segment_info or taxonomy lookup."""

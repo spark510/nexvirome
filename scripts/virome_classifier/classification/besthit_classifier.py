@@ -6,7 +6,7 @@ read -> argmax(bits) hit's taxid. This is the user-core read-level assignment th
 pins one taxon per read (lowest false-positive rate; cross-map reads do NOT drift to
 a higher rank as they would under LCA). It is the alternative to LCAClassifier at
 "stage 0" (read-level taxonomy); the downstream rank roll-up, phage-host roll-up,
-FP post-filter and kraken/abundance writers all consume the SAME lca_df schema, so
+FP post-filter and kraken/abundance writers all consume the SAME result_df schema, so
 this classifier emits exactly those columns.
 
 Tie-break: highest bits, then highest fident, then smallest taxid (stable) — matching
@@ -80,9 +80,9 @@ class BestHitClassifier:
         best_q = best.set_index("query")
         out = pd.DataFrame({
             "query": queries,
-            "lca_taxid": [int(t) for t in taxids],
-            "lca_name": [_nm(int(t)) for t in taxids],
-            "lca_rank": [_rk(int(t)) for t in taxids],
+            "taxon_taxid": [int(t) for t in taxids],
+            "taxon_name": [_nm(int(t)) for t in taxids],
+            "taxon_rank": [_rk(int(t)) for t in taxids],
             "qlen": [int(best_q.at[q, "qlen"]) if has_qlen else 100 for q in queries],
             "read_count": 1,
             "n_hits": [int(n_hits.get(q, 1)) for q in queries],

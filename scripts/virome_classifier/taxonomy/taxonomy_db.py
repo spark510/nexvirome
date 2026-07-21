@@ -269,8 +269,8 @@ class TaxonomyDB:
 
         # Use fast LCA from original implementation
         try:
-            lca_taxid = self._tax.lca_k_taxids(valid_taxids)
-            return lca_taxid if lca_taxid > 0 else None
+            taxon_taxid = self._tax.lca_k_taxids(valid_taxids)
+            return taxon_taxid if taxon_taxid > 0 else None
         except Exception as e:
             log_verbose(f"Warning: LCA computation failed: {e}")
             return None

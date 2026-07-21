@@ -18,7 +18,7 @@ Presets (chosen vs full grid to keep the design space tractable):
 
 All operate on the combined hits DataFrame produced by classify.parse_alignments
 (columns incl. query, target, taxid, bits, strand['+'=R1,'-'=R2]). Output is the
-same lca_df schema the Kraken reporting expects.
+same result_df schema the Kraken reporting expects.
 """
 from __future__ import annotations
 
@@ -84,7 +84,7 @@ def _assign_one(group: pd.DataFrame, tax, tau: float, combine: str, fallback: st
 
 def classify_paired(combined_hits: pd.DataFrame, tax, preset: str = "pe_balanced",
                     tau: float = None, verbose: bool = False) -> pd.DataFrame:
-    """Run a paired-end concordance preset; return lca_df (Kraken-ready)."""
+    """Run a paired-end concordance preset; return result_df (Kraken-ready)."""
     cfg = PRESET_DEFAULTS[preset]
     tau = cfg["tau"] if tau is None else tau
     combine, fallback = cfg["combine"], cfg["fallback"]
@@ -99,9 +99,9 @@ def classify_paired(combined_hits: pd.DataFrame, tax, preset: str = "pe_balanced
         if taxid and taxid > 0:
             rows.append({
                 "query": query,
-                "lca_taxid": int(taxid),
-                "lca_name": tax.get_name(taxid) or f"Unknown ({taxid})",
-                "lca_rank": tax.get_rank(taxid) or "no rank",
+                "taxon_taxid": int(taxid),
+                "taxon_name": tax.get_name(taxid) or f"Unknown ({taxid})",
+                "taxon_rank": tax.get_rank(taxid) or "no rank",
                 "qlen": int(group.iloc[0]["qlen"]) if "qlen" in group.columns else 100,
                 "read_count": 1,
                 "n_hits": len(group),
@@ -109,6 +109,6 @@ def classify_paired(combined_hits: pd.DataFrame, tax, preset: str = "pe_balanced
                 "all_taxids": ",".join(map(str, group["taxid"].astype(int).unique())),
             })
 
-    lca_df = pd.DataFrame(rows)
-    log_info(f"✅ [{preset}] classified {len(lca_df):,} read pairs")
-    return lca_df
+    result_df = pd.DataFrame(rows)
+    log_info(f"✅ [{preset}] classified {len(result_df):,} read pairs")
+    return result_df

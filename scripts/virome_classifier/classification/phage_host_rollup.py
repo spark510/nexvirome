@@ -8,8 +8,8 @@ interpretable read-out ("phages_of_Streptococcus" ~ Streptococcus present). It i
 applied AFTER the FP post-filter, only when --phage-host-rollup is set.
 
 Rules (see docs/phage_host_processing.md):
-  - phage with a KNOWN host       -> relabel lca_taxid to a synthetic host node and
-                                     lca_name to "phages_of_<HostGenus>" (reads of all
+  - phage with a KNOWN host       -> relabel taxon_taxid to a synthetic host node and
+                                     taxon_name to "phages_of_<HostGenus>" (reads of all
                                      same-host phage merge into one taxon).
   - phage with an UNKNOWN host     -> kept PER-SPECIES (NOT merged): they are distinct
                                      phages we merely lack a host for; collapsing them
@@ -22,13 +22,14 @@ on version-stripped accession, plus the title-parsed phage_host_from_title table
 Environmental/metagenome host strings collapse to unknown (kept per-species).
 
 The synthetic host node uses a NEGATIVE id (-(hash) space) so it never collides with a
-real NCBI taxid; kraken/abundance writers key on lca_taxid/lca_name and treat it as a
+real NCBI taxid; kraken/abundance writers key on taxon_taxid/taxon_name and treat it as a
 leaf. is_phage uses the same lineage rule as the benchmark (Caudoviricetes / ssRNA /
 ssDNA phage clades + the word 'phage'); Duplodnaviria is NOT treated as phage (it also
 contains herpesviruses).
 """
 from __future__ import annotations
 
+import hashlib
 import sqlite3
 from typing import Optional
 
@@ -138,21 +139,25 @@ def build_phage_host_map(db_path: str):
 
 def _synthetic_host_taxid(host_genus: str) -> int:
     """Stable NEGATIVE pseudo-taxid for a host-genus node (never collides with a
-    real positive NCBI taxid). Deterministic per host name."""
-    return -(abs(hash(("phages_of", host_genus))) % 2_000_000_000) - 1
+    real positive NCBI taxid). Deterministic per host name ACROSS runs — uses a
+    fixed hash (md5), not Python's built-in hash() which is randomised per process
+    by PYTHONHASHSEED and would give a different id each run (breaking taxid joins
+    across samples/runs). The label 'phages_of_<host>' stays the human-readable key."""
+    digest = hashlib.md5(f"phages_of::{host_genus}".encode("utf-8")).hexdigest()
+    return -(int(digest[:15], 16) % 2_000_000_000) - 1
 
 
-def apply_phage_host_rollup(lca_df: pd.DataFrame, tax2host: dict, phage: set) -> pd.DataFrame:
+def apply_phage_host_rollup(result_df: pd.DataFrame, tax2host: dict, phage: set) -> pd.DataFrame:
     """Relabel phage rows (known host) to a synthetic host-genus taxon; leave
     unknown-host phage per-species and all non-phage untouched. Returns a new df
-    with lca_taxid/lca_name/lca_rank rewritten for rolled-up rows.
+    with taxon_taxid/taxon_name/taxon_rank rewritten for rolled-up rows.
 
     No-op-safe: rows whose taxid is not a known-host phage pass through unchanged,
     so downstream kraken/abundance writers see one merged leaf per host genus."""
-    if lca_df is None or lca_df.empty:
-        return lca_df
-    df = lca_df.copy()
-    df["lca_taxid"] = df["lca_taxid"].astype(int)
+    if result_df is None or result_df.empty:
+        return result_df
+    df = result_df.copy()
+    df["taxon_taxid"] = df["taxon_taxid"].astype(int)
 
     def remap(tid):
         if tid in phage and tid in tax2host:
@@ -162,15 +167,15 @@ def apply_phage_host_rollup(lca_df: pd.DataFrame, tax2host: dict, phage: set) ->
 
     n_rolled = 0
     new_tid, new_nm, new_rk = [], [], []
-    for tid, nm, rk in zip(df["lca_taxid"], df.get("lca_name", ""), df.get("lca_rank", "")):
+    for tid, nm, rk in zip(df["taxon_taxid"], df.get("taxon_name", ""), df.get("taxon_rank", "")):
         r = remap(int(tid))
         if r:
             new_tid.append(r[0]); new_nm.append(r[1]); new_rk.append(r[2]); n_rolled += 1
         else:
             new_tid.append(int(tid)); new_nm.append(nm); new_rk.append(rk)
-    df["lca_taxid"] = new_tid
-    df["lca_name"] = new_nm
-    df["lca_rank"] = new_rk
+    df["taxon_taxid"] = new_tid
+    df["taxon_name"] = new_nm
+    df["taxon_rank"] = new_rk
 
     n_hosts = len({t for t in new_tid if t < 0})
     log_info(f"  [phage-host-rollup] {n_rolled:,} phage reads -> {n_hosts} host-genus "

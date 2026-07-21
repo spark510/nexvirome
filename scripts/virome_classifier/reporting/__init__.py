@@ -13,7 +13,7 @@ Quick Start:
     >>> # After LCA classification
     >>> tax = TaxonomyDB.from_sqlite("taxonomy.db")
     >>> files = write_all_outputs(
-    ...     results_df=lca_df,
+    ...     results_df=result_df,
     ...     tax=tax,
     ...     output_dir="./output",
     ...     sample_name="sample1"

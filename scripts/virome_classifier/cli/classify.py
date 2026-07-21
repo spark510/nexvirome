@@ -460,7 +460,7 @@ def perform_conditional_lca_classification(
 
 
 def export_results(
-    lca_df: pd.DataFrame,
+    result_df: pd.DataFrame,
     final_hits: pd.DataFrame,
     stats_df: pd.DataFrame,
     output_dir: Path,
@@ -474,7 +474,7 @@ def export_results(
 
     # Save LCA results
     lca_file = output_dir / f"{sample_name}_read_classification.csv"
-    lca_df.to_csv(lca_file, index=False)
+    result_df.to_csv(lca_file, index=False)
     log_info(f"  LCA results: {lca_file}")
 
     # Save filtered hits
@@ -489,7 +489,7 @@ def export_results(
 
 
 def generate_kraken_reports(
-    lca_df: pd.DataFrame,
+    result_df: pd.DataFrame,
     tax: TaxonomyDB,
     output_dir: Path,
     sample_name: str,
@@ -500,7 +500,7 @@ def generate_kraken_reports(
     log_info("\n📊 Generating Kraken reports...")
 
     kraken_files = write_all_outputs(
-        results_df=lca_df,
+        results_df=result_df,
         tax=tax,
         output_dir=str(output_dir),
         sample_name=sample_name,
@@ -566,10 +566,10 @@ def run_coverage_mode(args, tax, combined_hits, output_dir):
     # Stash for ml_filter mode to reuse in-memory (avoids re-reading the TSV).
     run_coverage_mode._last_summary = summary_df
 
-    # Convert to LCA-compatible format for Kraken reporting
-    lca_df = _coverage_to_lca_format(assignment_df, tax)
+    # Convert coverage assignment to the per-read taxon DataFrame for Kraken reporting
+    result_df = _coverage_to_result_format(assignment_df, tax)
 
-    return lca_df, assignment_df, abundance_df, taxon_cov
+    return result_df, assignment_df, abundance_df, taxon_cov
 
 
 def run_ml_filter_mode(args, tax, combined_hits, output_dir):
@@ -578,18 +578,18 @@ def run_ml_filter_mode(args, tax, combined_hits, output_dir):
     from ..classification.ml_filter import score
 
     log_info("\n🧬 Running ML_FILTER (coverage detection + learned TP/FP refinement)...")
-    lca_df, assignment_df, abundance_df, taxon_cov = run_coverage_mode(args, tax, combined_hits, output_dir)
+    result_df, assignment_df, abundance_df, taxon_cov = run_coverage_mode(args, tax, combined_hits, output_dir)
 
     model_path = getattr(args, "ml_model", None)
     if not model_path:
         log_info("  ⚠️  --ml-model not given; returning coverage result unchanged.")
-        return lca_df, assignment_df, abundance_df, taxon_cov
+        return result_df, assignment_df, abundance_df, taxon_cov
 
     # Build the feature summary in-memory from taxon_cov (no disk round-trip).
     summary_df = run_coverage_mode._last_summary if hasattr(run_coverage_mode, "_last_summary") else None
     if summary_df is None or summary_df.empty:
         log_info("  ⚠️  no coverage summary to score; returning coverage result.")
-        return lca_df, assignment_df, abundance_df, taxon_cov
+        return result_df, assignment_df, abundance_df, taxon_cov
 
     scored = score(summary_df, model_path, threshold=getattr(args, "ml_threshold", 0.5))
     scored.to_csv(output_dir / f"{args.sample}_ml_scored.tsv", sep='\t', index=False)
@@ -598,17 +598,17 @@ def run_ml_filter_mode(args, tax, combined_hits, output_dir):
     log_info(f"  ML kept {len(keep)} species, rejected {len(rejected)} (FP) "
              f"@ threshold {getattr(args, 'ml_threshold', 0.5)}")
 
-    # Filter assignment_df to ML-kept species, rebuild lca_df
+    # Filter assignment_df to ML-kept species, rebuild result_df
     if assignment_df is not None and not assignment_df.empty:
         assignment_df = assignment_df[assignment_df["working_taxid"].astype(int).isin(keep)].copy()
-    lca_df = _coverage_to_lca_format(assignment_df, tax)
+    result_df = _coverage_to_result_format(assignment_df, tax)
     if abundance_df is not None and "taxon_taxid" in abundance_df.columns:
         abundance_df = abundance_df[abundance_df["taxon_taxid"].astype(int).isin(keep)].copy()
-    return lca_df, assignment_df, abundance_df, taxon_cov
+    return result_df, assignment_df, abundance_df, taxon_cov
 
 
-def _coverage_to_lca_format(assignment_df, tax):
-    """Convert coverage assignment to LCA-compatible DataFrame for Kraken reporting."""
+def _coverage_to_result_format(assignment_df, tax):
+    """Convert coverage assignment to the per-read taxon DataFrame (taxon_taxid/name/rank) for Kraken reporting."""
     if assignment_df is None or assignment_df.empty:
         return pd.DataFrame()
 
@@ -617,9 +617,9 @@ def _coverage_to_lca_format(assignment_df, tax):
         taxid = int(row['working_taxid'])
         rows.append({
             'query': row['query'],
-            'lca_taxid': taxid,
-            'lca_name': tax.get_name(taxid) or f"Unknown ({taxid})",
-            'lca_rank': tax.get_rank(taxid) or 'no rank',
+            'taxon_taxid': taxid,
+            'taxon_name': tax.get_name(taxid) or f"Unknown ({taxid})",
+            'taxon_rank': tax.get_rank(taxid) or 'no rank',
             'qlen': 100,
             'read_count': 1,
             'n_hits': 1,
@@ -652,14 +652,14 @@ def run_em_mode(args, tax, combined_hits, output_dir):
         verbose=args.verbose,
     )
 
-    lca_df, abundance_df = classifier.classify(combined_hits)
+    result_df, abundance_df = classifier.classify(combined_hits)
 
     # Save EM-specific outputs
     output_dir.mkdir(parents=True, exist_ok=True)
     abundance_df.to_csv(output_dir / f"{args.sample}_em_abundance.tsv", sep='\t', index=False)
     log_info(f"  EM abundance: {output_dir / f'{args.sample}_em_abundance.tsv'}")
 
-    return lca_df, abundance_df
+    return result_df, abundance_df
 
 
 def run_lca_mode(args, tax, combined_hits, output_dir):
@@ -692,25 +692,25 @@ def run_lca_mode(args, tax, combined_hits, output_dir):
     #     passed_hits = hits
     #     stats_df = mf.calculate_stats(hits) if mf is not None else pd.DataFrame()
     # if getattr(args, "mode", "lca") == "lca_conditional":
-    #     lca_df = perform_conditional_lca_classification(
+    #     result_df = perform_conditional_lca_classification(
     #         passed_hits, tax, args.verbose,
     #         min_species_confidence=getattr(args, "min_species_confidence", 0.5),
     #     )
     # elif getattr(args, "read_assign", "best_hit") == "best_hit":
     #     from ..classification.besthit_classifier import BestHitClassifier
-    #     lca_df = BestHitClassifier(tax, args.verbose).classify(
+    #     result_df = BestHitClassifier(tax, args.verbose).classify(
     #         passed_hits, fix_rank=getattr(args, "lca_fix_rank", "none"))
     # else:
-    #     lca_df = perform_lca_classification(
+    #     result_df = perform_lca_classification(
     #         passed_hits, tax, args.verbose,
     #         fix_rank=getattr(args, "lca_fix_rank", "none"),
     #     )
-    # export_results(lca_df, passed_hits, stats_df, output_dir, args.sample, args.verbose)
-    # return lca_df
+    # export_results(result_df, passed_hits, stats_df, output_dir, args.sample, args.verbose)
+    # return result_df
 
 
-# Mode registry: name -> callable(args, tax, combined_hits, output_dir) -> lca_df.
-# The coverage/em/ml_filter runners return richer tuples (lca_df first); the
+# Mode registry: name -> callable(args, tax, combined_hits, output_dir) -> result_df.
+# The coverage/em/ml_filter runners return richer tuples (result_df first); the
 # adapters keep the dispatch uniform. Register a new mode here — no if/elif edits.
 MODE_DISPATCH = {
     # LCA mode is DISABLED — coverage (method B: best-hit + unmasked breadth>=0.01
@@ -752,26 +752,26 @@ def main():
         output_dir = Path(args.output)
 
         # ====== MODE DISPATCH (registry) ======
-        # Each mode is a function (args, tax, combined_hits, output_dir) -> lca_df.
+        # Each mode is a function (args, tax, combined_hits, output_dir) -> result_df.
         # Adding a mode = register it in MODE_DISPATCH; no new if/elif needed.
         if args.mode not in MODE_DISPATCH:
             raise ValueError(f"Unknown mode: {args.mode}")
-        lca_df = MODE_DISPATCH[args.mode](args, tax, combined_hits, output_dir)
+        result_df = MODE_DISPATCH[args.mode](args, tax, combined_hits, output_dir)
 
         # ====== COMMON: mode-agnostic FP post-filter ======
         # Relative-abundance cut (default FP control) + optional unique-fraction,
         # applied uniformly to lca / em / coverage so the three modes are compared
         # under the SAME FP control (only removes taxa; harmless if a mode already
         # filtered). ml_filter uses its own trained model, so skip it.
-        if args.mode in ("lca", "em", "coverage") and len(lca_df) > 0 and (
+        if args.mode in ("lca", "em", "coverage") and len(result_df) > 0 and (
             getattr(args, "min_rel_abundance", 0.0) > 0
             or getattr(args, "min_unique_fraction", 0.0) > 0
             or getattr(args, "min_read_count", 0) > 0
         ):
             from ..classification.fp_postfilter import apply_fp_postfilter
-            taxids_before = set(lca_df["lca_taxid"].astype(int)) if "lca_taxid" in lca_df else set()
-            lca_df = apply_fp_postfilter(
-                lca_df, tax,
+            taxids_before = set(result_df["taxon_taxid"].astype(int)) if "taxon_taxid" in result_df else set()
+            result_df = apply_fp_postfilter(
+                result_df, tax,
                 min_rel_abundance=getattr(args, "min_rel_abundance", 0.0),
                 min_unique_fraction=getattr(args, "min_unique_fraction", 0.0),
                 min_read_count=getattr(args, "min_read_count", 0),
@@ -781,7 +781,7 @@ def main():
             # lists taxa the filter just dropped. Re-filter it to the surviving
             # taxids and rewrite, keeping read_count / TPM consistent with the
             # read-classification output.
-            taxids_after = set(lca_df["lca_taxid"].astype(int)) if "lca_taxid" in lca_df else set()
+            taxids_after = set(result_df["taxon_taxid"].astype(int)) if "taxon_taxid" in result_df else set()
             if args.mode == "coverage" and taxids_after != taxids_before:
                 ab_path = output_dir / f"{args.sample}_coverage_abundance.tsv"
                 if ab_path.exists():
@@ -800,11 +800,11 @@ def main():
         # ====== COMMON: optional phage -> host-genus roll-up ======
         # Collapses phage cross-map dispersion into per-host taxa; non-phage and
         # host-unknown phage are left untouched. Applied to every counting mode.
-        if getattr(args, "phage_host_rollup", False) and len(lca_df) > 0:
+        if getattr(args, "phage_host_rollup", False) and len(result_df) > 0:
             from ..classification.phage_host_rollup import (
                 build_phage_host_map, apply_phage_host_rollup)
             tax2host, phage_set = build_phage_host_map(args.taxonomy)
-            lca_df = apply_phage_host_rollup(lca_df, tax2host, phage_set)
+            result_df = apply_phage_host_rollup(result_df, tax2host, phage_set)
 
         # ====== COMMON: per-query classification CSV ======
         # LCA mode writes this via export_results(); coverage/em modes write it
@@ -815,21 +815,21 @@ def main():
         # than silently missing it.
         if args.mode in ("coverage", "em"):
             output_dir.mkdir(parents=True, exist_ok=True)
-            if len(lca_df) == 0 and len(lca_df.columns) == 0:
-                lca_df = pd.DataFrame(columns=["query", "lca_taxid", "lca_name",
-                                               "lca_rank", "read_count"])
-            lca_df.to_csv(output_dir / f"{args.sample}_read_classification.csv", index=False)
+            if len(result_df) == 0 and len(result_df.columns) == 0:
+                result_df = pd.DataFrame(columns=["query", "taxon_taxid", "taxon_name",
+                                               "taxon_rank", "read_count"])
+            result_df.to_csv(output_dir / f"{args.sample}_read_classification.csv", index=False)
             log_info(f"  Classification: {output_dir / f'{args.sample}_read_classification.csv'}"
-                     + (" (0 reads)" if len(lca_df) == 0 else ""))
+                     + (" (0 reads)" if len(result_df) == 0 else ""))
 
         # ====== COMMON: Kraken reports ======
         # Always emit a .kreport, even for a zero-read / fully-filtered sample, so
         # a downstream per-sample merge does not fail on a missing file. The
-        # writer (write_kraken_output) handles an empty lca_df by writing an
+        # writer (write_kraken_output) handles an empty result_df by writing an
         # empty report rather than crashing.
         if not args.no_kraken:
             generate_kraken_reports(
-                lca_df,
+                result_df,
                 tax,
                 output_dir,
                 args.sample,
@@ -845,9 +845,9 @@ def main():
         print(f"Input hits: {len(combined_hits):,}")
         # (per-mode quality/masking counts are logged inside each runner via
         # log_info; they are not in main()'s scope, so don't reference them here.)
-        print(f"Classified: {len(lca_df):,} queries")
-        if len(lca_df) > 0:
-            print(f"Unique taxa: {lca_df['lca_taxid'].nunique()}")
+        print(f"Classified: {len(result_df):,} queries")
+        if len(result_df) > 0:
+            print(f"Unique taxa: {result_df['taxon_taxid'].nunique()}")
         print(f"\n✅ Pipeline complete! Results saved to: {output_dir}")
 
         return 0

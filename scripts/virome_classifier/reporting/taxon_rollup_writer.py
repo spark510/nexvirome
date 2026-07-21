@@ -146,8 +146,8 @@ def write_taxon_rollups(
     out.mkdir(parents=True, exist_ok=True)
 
     bridge = IctvBridge(db_path)
-    # per-taxid total reads from the lca_df (already one row per query)
-    counts = results_df.groupby("lca_taxid").size().to_dict()
+    # per-taxid total reads from the result_df (already one row per query)
+    counts = results_df.groupby("taxon_taxid").size().to_dict()
     files = {
         "ncbi_species": str(out / f"{sample_name}.ncbi_species.tsv"),
         "ncbi_genus":   str(out / f"{sample_name}.ncbi_genus.tsv"),
@@ -155,7 +155,7 @@ def write_taxon_rollups(
         "ictv_genus":   str(out / f"{sample_name}.ictv_genus.tsv"),
     }
 
-    # NCBI roll-up: walk each lca_taxid up to species / genus
+    # NCBI roll-up: walk each taxon_taxid up to species / genus
     ncbi_sp: dict = {}
     ncbi_gn: dict = {}
     for tid, n in counts.items():

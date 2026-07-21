@@ -141,7 +141,7 @@ The pipeline generates the following files in the output directory:
 ### LCA Classification CSV
 
 ```csv
-query,lca_taxid,lca_name,lca_rank,qlen,read_count,n_hits,n_unique_taxids,all_taxids
+query,taxon_taxid,taxon_name,taxon_rank,qlen,read_count,n_hits,n_unique_taxids,all_taxids
 read_001,10359,Human betaherpesvirus 5,no rank,151,1,5,2,"10359,10358"
 read_002,10310,Human alphaherpesvirus 2,no rank,151,1,3,1,"10310"
 ```

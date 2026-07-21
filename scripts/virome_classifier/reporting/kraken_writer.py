@@ -23,17 +23,17 @@ def attach_taxonomy_columns(results_df: pd.DataFrame, tax: TaxonomyDB) -> pd.Dat
     """
     Add taxonomy metadata columns to results DataFrame.
 
-    Adds: taxon_name, taxon_rank, rank_code based on lca_taxid column.
+    Adds: taxon_name, taxon_rank, rank_code based on taxon_taxid column.
     Uses caching for performance optimization.
 
     Args:
-        results_df: DataFrame with 'lca_taxid' column
+        results_df: DataFrame with 'taxon_taxid' column
         tax: TaxonomyDB instance
 
     Returns:
         DataFrame with added taxonomy columns
     """
-    if results_df is None or results_df.empty or "lca_taxid" not in results_df.columns:
+    if results_df is None or results_df.empty or "taxon_taxid" not in results_df.columns:
         return results_df
 
     log_verbose("🔗 Attaching taxonomy metadata (name/rank/code) to results...")
@@ -68,7 +68,7 @@ def attach_taxonomy_columns(results_df: pd.DataFrame, tax: TaxonomyDB) -> pd.Dat
         return code_cache[tid]
 
     out = results_df.copy()
-    tids = out["lca_taxid"].fillna(0).astype(int)
+    tids = out["taxon_taxid"].fillna(0).astype(int)
 
     out["taxon_name"] = tids.map(_name)
     out["taxon_rank"] = tids.map(_rank)
@@ -89,13 +89,13 @@ def build_abundance_from_results(
     Accumulates read counts up the taxonomic tree for each classified read.
 
     Args:
-        results_df: DataFrame with 'lca_taxid' and optional 'read_count' columns
+        results_df: DataFrame with 'taxon_taxid' and optional 'read_count' columns
         tax: TaxonomyDB instance
         virus_root: If True, treat Viruses (taxid=10239) as effective root
 
     Returns:
         DataFrame with columns:
-        - lca_taxid: Taxonomy ID
+        - taxon_taxid: Taxonomy ID
         - taxon_name: Taxon name
         - taxon_rank: Taxonomic rank
         - read_count: Total reads in clade (including descendants)
@@ -103,15 +103,15 @@ def build_abundance_from_results(
         - depth: Hierarchical depth from root
         - parent_taxid: Parent taxon ID
     """
-    if results_df is None or results_df.empty or "lca_taxid" not in results_df.columns:
+    if results_df is None or results_df.empty or "taxon_taxid" not in results_df.columns:
         return pd.DataFrame(
-            columns=["lca_taxid", "taxon_name", "taxon_rank", "read_count", "abundance", "depth", "parent_taxid"]
+            columns=["taxon_taxid", "taxon_name", "taxon_rank", "read_count", "abundance", "depth", "parent_taxid"]
         )
 
     # Get read counts (default to 1 if not present)
     rc = results_df["read_count"] if "read_count" in results_df.columns else pd.Series(1, index=results_df.index)
     rc = rc.fillna(1).astype(int)
-    tids = results_df["lca_taxid"].fillna(0).astype(int)
+    tids = results_df["taxon_taxid"].fillna(0).astype(int)
     total_reads = int(rc.sum())
 
     log_verbose(f"📈 Building clade abundance from {len(results_df):,} rows (total reads={total_reads:,})...")
@@ -142,7 +142,7 @@ def build_abundance_from_results(
 
     if not clade_counts:
         return pd.DataFrame(
-            columns=["lca_taxid", "taxon_name", "taxon_rank", "read_count", "abundance", "depth", "parent_taxid"]
+            columns=["taxon_taxid", "taxon_name", "taxon_rank", "read_count", "abundance", "depth", "parent_taxid"]
         )
 
     # Build rows with metadata, depth, and parent info
@@ -180,7 +180,7 @@ def build_abundance_from_results(
 
         rows.append(
             {
-                "lca_taxid": int(tid),
+                "taxon_taxid": int(tid),
                 "taxon_name": name,
                 "taxon_rank": rank,
                 "read_count": int(count),
@@ -207,17 +207,17 @@ def write_kraken_output(
     Write per-read classification in Kraken format.
 
     Format:
-        C/U <query_id> <lca_taxid> <query_length> <lineage>
+        C/U <query_id> <taxon_taxid> <query_length> <lineage>
 
     Where:
         - C/U: Classified or Unclassified
         - query_id: Read identifier
-        - lca_taxid: Assigned taxonomy ID (0 if unclassified)
+        - taxon_taxid: Assigned taxonomy ID (0 if unclassified)
         - query_length: Read length
         - lineage: Pipe-separated taxids from root to assignment
 
     Args:
-        results_df: DataFrame with columns: query, lca_taxid, qlen
+        results_df: DataFrame with columns: query, taxon_taxid, qlen
         output_file: Output file path
         tax: TaxonomyDB instance
     """
@@ -228,11 +228,11 @@ def write_kraken_output(
     try:
         # Vectorised. The old `for _, row in results_df.iterrows()` + per-read
         # tax.get_lineage() dominated deep-coverage samples (1.7M reads => ~130s
-        # on Qiagen). Reads share very few distinct lca_taxids, so resolve the
+        # on Qiagen). Reads share very few distinct taxon_taxids, so resolve the
         # lineage string ONCE per distinct taxid, map it onto the column, then
         # build all lines with a single vectorised join — byte-identical output.
         df = results_df
-        taxids = pd.to_numeric(df.get("lca_taxid", 0), errors="coerce").fillna(0).astype(int)
+        taxids = pd.to_numeric(df.get("taxon_taxid", 0), errors="coerce").fillna(0).astype(int)
         qlens = pd.to_numeric(df.get("qlen", 100), errors="coerce").fillna(100).astype(int)
         queries = df.get("query", pd.Series(["unknown"] * len(df))).astype(str)
 
@@ -299,17 +299,17 @@ def generate_kraken_report(abundance_df: pd.DataFrame, output_file: str) -> None
 
         # Use root node's read count as 100% base
         total_reads = int(root_row["read_count"])
-        root_taxid = int(root_row["lca_taxid"])
+        root_taxid = int(root_row["taxon_taxid"])
 
         log_verbose(f"📊 Using root taxid={root_taxid} ({root_row['taxon_name']}) with {total_reads:,} reads as 100% base")
 
         # Build parent-child relationships
-        present = set(abundance_df["lca_taxid"].astype(int))
+        present = set(abundance_df["taxon_taxid"].astype(int))
         parent_map: Dict[int, Optional[int]] = {}
         children: Dict[int, List[int]] = {tid: [] for tid in present}
 
         for _, row in abundance_df.iterrows():
-            tid = int(row["lca_taxid"])
+            tid = int(row["taxon_taxid"])
             parent_tid = row.get("parent_taxid")
             if pd.notna(parent_tid):
                 parent_tid = int(parent_tid)
@@ -322,11 +322,11 @@ def generate_kraken_report(abundance_df: pd.DataFrame, output_file: str) -> None
                 parent_map[tid] = None
 
         # Calculate reads_taxon (direct assignment vs clade total)
-        read_clade: Dict[int, int] = {int(t): int(c) for t, c in zip(abundance_df["lca_taxid"], abundance_df["read_count"])}
+        read_clade: Dict[int, int] = {int(t): int(c) for t, c in zip(abundance_df["taxon_taxid"], abundance_df["read_count"])}
 
         read_taxon: Dict[int, int] = {}
         # Process in reverse depth order (leaves first)
-        order = abundance_df.sort_values("depth", ascending=False)["lca_taxid"].astype(int).tolist()
+        order = abundance_df.sort_values("depth", ascending=False)["taxon_taxid"].astype(int).tolist()
         for tid in order:
             child_sum = sum(read_clade.get(ch, 0) for ch in children.get(tid, []))
             read_taxon[tid] = max(read_clade.get(tid, 0) - child_sum, 0)
@@ -367,7 +367,7 @@ def generate_kraken_report(abundance_df: pd.DataFrame, output_file: str) -> None
         # Create lookup for row data
         row_data = {}
         for _, row in abundance_df.iterrows():
-            tid = int(row["lca_taxid"])
+            tid = int(row["taxon_taxid"])
             row_data[tid] = {"name": str(row["taxon_name"]), "rank": str(row["taxon_rank"]), "depth": int(row["depth"])}
 
         # Write report in hierarchical order
@@ -405,7 +405,7 @@ def write_abundance_table(abundance_df: pd.DataFrame, output_file: str) -> None:
     Write flat abundance table for downstream analysis.
 
     Simple TSV format with columns:
-        lca_taxid, taxon_name, taxon_rank, read_count, abundance
+        taxon_taxid, taxon_name, taxon_rank, read_count, abundance
 
     Args:
         abundance_df: DataFrame from build_abundance_from_results()
@@ -416,7 +416,7 @@ def write_abundance_table(abundance_df: pd.DataFrame, output_file: str) -> None:
         return
 
     try:
-        cols = ["lca_taxid", "taxon_name", "taxon_rank", "read_count", "abundance"]
+        cols = ["taxon_taxid", "taxon_name", "taxon_rank", "read_count", "abundance"]
         existing = [c for c in cols if c in abundance_df.columns]
         abundance_df[existing].to_csv(output_file, sep="\t", index=False)
         log_info(f"📈 Abundance table written to: {output_file}")
@@ -442,7 +442,7 @@ def write_all_outputs(
     3. {sample_name}.abundance.tsv - Flat abundance table
 
     Args:
-        results_df: DataFrame with columns: query, lca_taxid, qlen
+        results_df: DataFrame with columns: query, taxon_taxid, qlen
         tax: TaxonomyDB instance
         output_dir: Output directory path
         sample_name: Sample name for output files

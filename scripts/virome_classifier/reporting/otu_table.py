@@ -23,7 +23,7 @@ def partition_nonempty_samples(
 
     A sample is treated as EMPTY (0 identified reads) when its per-query
     classification CSV has no data rows, or its read_count sum is 0, or it lacks
-    the 'lca_taxid' column entirely (e.g. a header-only file written for a
+    the 'taxon_taxid' column entirely (e.g. a header-only file written for a
     fully-filtered sample). Empty samples are excluded from the OTU merge so a
     single 0-read sample cannot break the whole table; the dropped names are
     returned so the caller can log them.
@@ -36,7 +36,7 @@ def partition_nonempty_samples(
         except Exception:
             dropped.append(sample_name)
             continue
-        if "lca_taxid" not in df.columns or len(df) == 0:
+        if "taxon_taxid" not in df.columns or len(df) == 0:
             dropped.append(sample_name)
             continue
         if count_column in df.columns and pd.to_numeric(
@@ -58,7 +58,7 @@ def load_lca_results(file_path: Union[str, Path]) -> pd.DataFrame:
         DataFrame with LCA results
     """
     df = pd.read_csv(file_path)
-    required_cols = ["query", "lca_taxid"]
+    required_cols = ["query", "taxon_taxid"]
 
     if not all(col in df.columns for col in required_cols):
         raise ValueError(f"LCA file must contain columns: {required_cols}")
@@ -106,10 +106,10 @@ def build_otu_table(
 
         # Count reads per taxon
         if count_column in df.columns:
-            taxon_counts = df.groupby("lca_taxid")[count_column].sum()
+            taxon_counts = df.groupby("taxon_taxid")[count_column].sum()
         else:
             # Count queries if no read_count column
-            taxon_counts = df["lca_taxid"].value_counts()
+            taxon_counts = df["taxon_taxid"].value_counts()
 
         # Add sample name
         taxon_counts.name = sample_name
@@ -212,13 +212,13 @@ def build_otu_table_at_rank(
 
         # Get counts
         if count_column in df.columns:
-            counts = df.set_index("lca_taxid")[count_column]
+            counts = df.set_index("taxon_taxid")[count_column]
         else:
-            counts = df["lca_taxid"].value_counts()
+            counts = df["taxon_taxid"].value_counts()
 
-        # Remember synthetic-node labels straight from lca_name (DB has no entry).
-        if "lca_name" in df.columns:
-            for tid, nm in zip(df["lca_taxid"], df["lca_name"]):
+        # Remember synthetic-node labels straight from taxon_name (DB has no entry).
+        if "taxon_name" in df.columns:
+            for tid, nm in zip(df["taxon_taxid"], df["taxon_name"]):
                 if int(tid) < 0:
                     synth_names.setdefault(int(tid), nm)
 
@@ -260,7 +260,7 @@ def build_otu_table_at_rank(
         log_verbose("  Normalizing to relative abundances...")
         otu_table = otu_table.div(otu_table.sum(axis=1), axis=0)
 
-    # Add taxonomy names (synthetic negative taxids keep their lca_name label —
+    # Add taxonomy names (synthetic negative taxids keep their taxon_name label —
     # e.g. "phages_of_<Host>" — since the taxonomy DB has no entry for them).
     log_verbose("  Adding taxonomy names...")
     taxid_to_name = {
