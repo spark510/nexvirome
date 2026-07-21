@@ -203,6 +203,9 @@ def build_otu_table_at_rank(
     log_info(f"📊 Building {rank}-level OTU table from {len(lca_files)} samples...")
 
     all_data = []
+    # Preserve names of synthetic (negative) taxids — e.g. the phage-host
+    # rollup's "phages_of_<Host>" leaves, which are NOT in the taxonomy DB.
+    synth_names = {}
     for sample_name, file_path in lca_files.items():
         log_verbose(f"  Processing {sample_name}...")
         df = load_lca_results(file_path)
@@ -213,11 +216,25 @@ def build_otu_table_at_rank(
         else:
             counts = df["lca_taxid"].value_counts()
 
+        # Remember synthetic-node labels straight from lca_name (DB has no entry).
+        if "lca_name" in df.columns:
+            for tid, nm in zip(df["lca_taxid"], df["lca_name"]):
+                if int(tid) < 0:
+                    synth_names.setdefault(int(tid), nm)
+
         # Map taxids to target rank
         rank_counts = {}
         for taxid, count in counts.items():
+            taxid = int(taxid)
+            # Synthetic host-genus nodes (negative id) are their own leaf: they
+            # have no DB lineage, so pass them through unchanged instead of
+            # dropping them when this rank is being built.
+            if taxid < 0:
+                rank_counts[taxid] = rank_counts.get(taxid, 0) + int(count)
+                continue
+
             # Get lineage and find target rank
-            lineage = tax.get_lineage(int(taxid))
+            lineage = tax.get_lineage(taxid)
             target_taxid = None
 
             for ancestor in reversed(lineage):  # Start from most specific
@@ -243,9 +260,14 @@ def build_otu_table_at_rank(
         log_verbose("  Normalizing to relative abundances...")
         otu_table = otu_table.div(otu_table.sum(axis=1), axis=0)
 
-    # Add taxonomy names
+    # Add taxonomy names (synthetic negative taxids keep their lca_name label —
+    # e.g. "phages_of_<Host>" — since the taxonomy DB has no entry for them).
     log_verbose("  Adding taxonomy names...")
-    taxid_to_name = {taxid: tax.get_name(int(taxid)) or f"taxid_{taxid}" for taxid in otu_table.columns}
+    taxid_to_name = {
+        taxid: (synth_names.get(int(taxid)) if int(taxid) < 0 else None)
+               or tax.get_name(int(taxid)) or f"taxid_{taxid}"
+        for taxid in otu_table.columns
+    }
     otu_table.columns = pd.Index([f"{taxid_to_name[tid]} ({tid})" for tid in otu_table.columns])
 
     return otu_table

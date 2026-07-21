@@ -78,11 +78,12 @@ def build_phage_host_map(db_path: str):
     except sqlite3.OperationalError:
         pass
 
-    parent, name = {}, {}
-    for tx, pt, nm in con.execute(
-            "SELECT taxid, parent_taxid, scientific_name FROM ncbi_taxonomy"):
+    parent, name, rank = {}, {}, {}
+    for tx, pt, nm, rk in con.execute(
+            "SELECT taxid, parent_taxid, scientific_name, rank FROM ncbi_taxonomy"):
         parent[tx] = pt
         name[tx] = nm
+        rank[tx] = rk
 
     def lineage_lower(tx):
         out, seen = [], 0
@@ -94,13 +95,30 @@ def build_phage_host_map(db_path: str):
             seen += 1
         return out
 
+    def species_of(tx):
+        """Walk up to the species-rank ancestor of tx (the rank the LCA
+        classifier emits), or tx itself if none is found. refseq_sequences
+        taxids are mostly strain/isolate ('no rank') children of a species;
+        the OTU tables key on the species taxid, so the phage/host maps must
+        be species-keyed too or nothing ever matches (phage-host rollup no-op)."""
+        cur, seen = tx, 0
+        while cur in parent and seen < 90:
+            if rank.get(cur) == "species":
+                return cur
+            if cur == parent[cur]:
+                break
+            cur = parent[cur]
+            seen += 1
+        return tx
+
     tax2host, phage = {}, set()
     seen_tax = set()
     for acc, tx, title in con.execute(
             "SELECT accession, taxid, title FROM refseq_sequences"):
+        sp = species_of(tx)
         ln = set(lineage_lower(tx))
         if ("phage" in (title or "").lower()) or (ln & _PHAGE_CLADES):
-            phage.add(tx)
+            phage.add(sp)
         if tx in seen_tax:
             continue
         seen_tax.add(tx)
@@ -113,7 +131,7 @@ def build_phage_host_map(db_path: str):
         if hg is None:
             hg = _host_genus(acc2host.get(acc.split(".")[0]))
         if hg:
-            tax2host[tx] = hg
+            tax2host.setdefault(sp, hg)
     con.close()
     return tax2host, phage
 
